@@ -7,7 +7,7 @@ class Card {
         //生成卡片uid
         Card.UID++;
         this.uid=Card.UID;
-        //数据赋值
+        //数据赋值  卡牌固定数据
         this.id=data.id;
         this.cardName=data.cardName;
         this.cardType=data.cardType;//类型   1武将/2计策/3陷阱/4宝物
@@ -25,7 +25,7 @@ class Card {
         this.buffList=[];
     }
     //说明
-    //buff数据结构 1嘲讽 2圣盾 3潜行       101 攻击变化 value值  102 士气变化 value值
+    //buff数据结构 101嘲讽 102圣盾 103潜行       401 攻击变化 value值  
     //类型  持续回合数  
     //=================类中函数
     //初始化归属  one/two
@@ -39,14 +39,19 @@ class Card {
             for(let i=0;i<buffs.length;i++){
                 this.addBuff(parseInt(buffs[i]));
             }
+        }else{
+            if(this.effect){
+                this.addBuff(this.effect);
+            }
         }
     }
     //登场次序
     addOrder(order){
         this.order=order;
     }
-    //获得状态   101嘲讽 102圣盾 103潜行
+    //获得状态   101嘲讽 102圣盾 103潜行   
     addBuff(buffId,value=0){
+        let uid=0;
         let hasBuff=false;
         for(let i=0;i<this.buffList.length;i++){
             let buff=this.buffList[i];
@@ -60,7 +65,9 @@ class Card {
         if(!hasBuff){
             Card.BUFF_UID++;
             this.buffList.push({uid:Card.BUFF_UID,id:buffId,value:value})
+            uid=Card.BUFF_UID;
         }
+        return uid;
     }
     //移除状态
     removeBuff(buffId){
@@ -71,6 +78,9 @@ class Card {
                 break;
             }
         }
+    }
+    removeAllBuff(){
+        this.buffList=[];
     }
     //根据buffid获取buff
     getBuffById(buffId){
@@ -84,15 +94,27 @@ class Card {
     }
     //获取实际攻击力
     getAttack(){
-        return this.attack;
+        let att=0;
+        for(let i=0;i<this.buffList.length;i++){
+            let buff=this.buffList[i];
+            if(buff.id==Card.BUFF_ATTACK){
+                att+=buff.value;
+            }
+        }
+        let newAtt=this.attack+att;
+        if(newAtt<0) newAtt=0;
+        return newAtt;
     }
     //发送给客户端的数据格式
     getCardData(){
         let obj={};
+        obj.uid=this.uid;
         obj.id=this.id;
+        // obj.owner=this.owner;
         obj.attack=this.getAttack();
         // obj.buffList
-
+        // obj.buffList=[];
+        obj.buffList=this.buffList;
         return obj;
     }
 
@@ -106,4 +128,9 @@ class Card {
 //静态变量
 Card.UID = 0;
 Card.BUFF_UID=0;
+
+//BUFFID
+Card.BUFF_TAUNT=101;//嘲讽
+Card.BUFF_SHIELD=102;//圣盾
+Card.BUFF_ATTACK=401;//攻击变化
 module.exports = Card;

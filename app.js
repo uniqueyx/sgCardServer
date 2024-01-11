@@ -11,12 +11,14 @@ let app = express();
 
 // let handleSynchronousClient = require('./handler');
 
+//app.use(cors({origin:'*'}));
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 
 let server = http.createServer(app);
-let socketServer = socket(server);
+//let socketServer = socket(server);
+let socketServer = socket(server,{cors:{origin:'*'}});
 //房间数据
 let roomList=[];
 //匹配列表
@@ -38,7 +40,7 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
     // console.log(arr,"arr",o4)
     // console.log(cardData.length);
     cardList=JSON.parse(cardData)
-    server.listen(4001, function () {
+    server.listen(3005, function () {
         console.log("listen");
     });
     
@@ -72,7 +74,7 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
                 }
             }
             if(inGame) {
-                console.log("ingame>>>>",gameHandle==null,roomHandle.roomData==undefined);
+                console.log("ingame>>>> 发送重连数据？？",gameHandle==null,roomHandle.roomData==undefined);
                 // let roomHandle=new rh(roomList,waitList,cardList,socketServer);
                 if(roomHandle.roomData==undefined){
                     roomHandle.roomData=roomData;
@@ -99,10 +101,14 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
         });
     
         
-    
-        socket.on('disconnect', function () {
-            console.log("disconnect one on ：" + new Date().toLocaleString());
+    	
+        socket.on('disconnect',  (data) => {
+            	console.log("disconnect one on ：" + new Date().toLocaleString(),"断开连接",data);
+	           roomHandle.disConnect(socket);
         });
+        //socket.on('disconnect', function () {
+        //    console.log("disconnect one on ：" + new Date().toLocaleString());
+        //});
     
         socket.on("ADD", function() {
             console.log("ADD>>",arguments);

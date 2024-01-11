@@ -3,12 +3,12 @@
     "id": 10001,
     "cardName": "邓茂",
     "cardType": 1,
-    "info": "圣盾 潜行",
+    "info": "圣盾 潜行 战吼:对手抽一张卡",
     "force": "黄巾",
     "rare": 1,
     "attack": 11,
     "need": 0,
-    "effect": "102_103",
+    "effect": 102,
     "appearEffect": "[{\"id\":201,\"obj\":2,\"value\":1}]",
     "deathEffect": 0
   },
@@ -16,7 +16,7 @@
     "id": 10002,
     "cardName": "程远志",
     "cardType": 1,
-    "info": "无",
+    "info": "战吼:抽两张卡",
     "force": "黄巾",
     "rare": 1,
     "attack": 12,
@@ -29,12 +29,12 @@
     "id": 10003,
     "cardName": "高升",
     "cardType": 1,
-    "info": "潜行",
+    "info": "嘲讽 战吼:回复10点士气",
     "force": "黄巾",
     "rare": 1,
     "attack": 13,
     "need": 0,
-    "effect": "102_103",
+    "effect": 101,
     "appearEffect": "[{\"id\":202,\"obj\":1,\"value\":10}]",
     "deathEffect": 0
   },
@@ -42,13 +42,13 @@
     "id": 10004,
     "cardName": "卜已",
     "cardType": 1,
-    "info": "圣盾",
+    "info": "圣盾 战吼:双方减少8点士气",
     "force": "黄巾",
     "rare": 1,
     "attack": 14,
     "need": 0,
     "effect": 102,
-    "appearEffect": "[{\"id\":202,\"obj\":3,\"value\":8}]",
+    "appearEffect": "[{\"id\":202,\"obj\":3,\"value\":-8}]",
     "deathEffect": 0
   },
   {
@@ -61,7 +61,7 @@
     "attack": 15,
     "need": 0,
     "effect": "101_102",
-    "appearEffect": "[]",
+    "appearEffect": "[{\"id\":401,\"atk\":\"+15\"}]",
     "deathEffect": 0
   }
 ]
