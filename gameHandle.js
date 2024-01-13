@@ -25,22 +25,28 @@ class GameHandle {
         //发送开始游戏
         this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user});
         this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:this.roomData.one.user});
+        
+        //随机出先攻 开始回合
+        let first=Math.random() * 2;//Math.floor(Math.random() * 2);
+        this.roomData.firstTurn=first<1?"one":"two";
+        console.log("firstTurn>>>",this.roomData.firstTurn);
+
         //初始化士气
         this.roomData.orderCount=0;
         this.initHP();
-        this.initUseGeneralTimes();
+        
         //初始化卡组
         this.initCards("one");
         this.initCards("two");
+        //初始化攻击次数
+        this.initAttackCount("one");
+        this.initAttackCount("two");
        
         //发送卡牌数据
         this.socketSendCards( this.roomData.one,this.roomData.two);
         this.socketSendCards( this.roomData.two,this.roomData.one);
 
-        //随机出先攻 开始回合
-        let first=Math.random() * 2;//Math.floor(Math.random() * 2);
-        this.roomData.firstTurn=first<1?"one":"two";
-        console.log("firstTurn>>>",this.roomData.firstTurn);
+        
         //回合计时器
         this.initTurnTimer();
         this.turnNext(false);
@@ -54,15 +60,33 @@ class GameHandle {
         this.roomData["one"].hp=GameHandle.INIT_HP;
         this.roomData["two"].hp=GameHandle.INIT_HP;
     }
-    //重置武将通常召唤次数
+    //重置武将通常召唤次数  重置攻击次数
     initUseGeneralTimes(){
         this.roomData["one"].useGeneralTimes=1;
         this.roomData["two"].useGeneralTimes=1;
+        this.initAttackCount();//初始化攻击次数
+    }
+    //重置攻击次数
+    initAttackCount(key=""){
+        let cardList=this.roomData[key?key:this.currentTurn]["tableCards"];
+        for(let i=0;i<cardList.length;i++){
+            let cardOne=cardList[i];
+            cardOne.initAttackCount(1);
+        }
     }
     //初始化卡组
     initCards(key){
-        let cardList=[10001,10001,10001,10001,10001,10001,10002,10002,10002,10002,10002,10002,10003,10003,10003,10003,10003,10003,
-            10004,10004,10004,10004,10004,10004,10005,10005,10005,10005,10005,10005];
+        // let cardList=[10001,10001,10001,10001,10001,10001,10002,10002,10002,10002,10002,10002,
+        //     10003,10003,10003,10003,10003,10003,
+        //     10004,10004,10004,10004,10004,10004,10005,10005,10005,10005,10005,10005];
+        let cardList=[];
+        let num=10;
+        let repeat=4;
+        for(let i=2;i<num;i++){
+            for(let j=0;j<repeat;j++){
+                cardList.push(10001+i);
+            }
+        }
         this.shuffle(cardList);
         console.log("cardList>>",cardList)
         let newList=[];
@@ -118,12 +142,12 @@ class GameHandle {
         this.roomData[key].socket.emit("GAME",{type:"card_attack",isMe:true,uid:uid,target:target});
         this.roomData[other].socket.emit("GAME",{type:"card_attack",isMe:false,uid:uid,target:target});
     }
-    //更新单个卡牌信息 暂时只处理场上  updateType(1 0 -1)召唤更新破坏移除
-    socketUpdateCard(key,uid,type,card){
-        if(type==1) console.log("update_card>>",key,uid,card)
+    //更新单个卡牌信息 暂时只处理场上 pos获得专用参数4从系统 3从卡组 updateType(1 0 -1 -2 -3) 1召唤  2获得 -1破坏 -2返回手卡 -3返回卡组  
+    socketUpdateCard(key,uid,type,card,pos=0){
+        if(type==1) console.log("update_card>>",key,uid,card.cardName);
         let other=key=="one"?"two":"one";
-        this.roomData[key].socket.emit("GAME",{type:"card_update",isMe:true,uid:uid,updateType:type,value:type==1?card.getCardData():0});
-        this.roomData[other].socket.emit("GAME",{type:"card_update",isMe:false,uid:uid,updateType:type,value:type==1?card.getCardData():0});
+        this.roomData[key].socket.emit("GAME",{type:"card_update",isMe:true,uid:uid,updateType:type,value:(type==1||type==2)?card.getCardData():0,pos:pos});
+        this.roomData[other].socket.emit("GAME",{type:"card_update",isMe:false,uid:uid,updateType:type,value:(type==1||type==2)?card.getCardData():0,pos:pos});
     }
     //更新场上武将卡buff  updateType(1 0 -1)增加 更新 移除
     socketUpdateBuff(key,uid,buffUid,buffId,type,value){
@@ -144,6 +168,14 @@ class GameHandle {
             this.gameReady(socket,data);
             return;
         }
+        if(data.type=="game_surrender"){//游戏投降消息特殊处理 不用进入回合判断
+            this.gameSurrender(socket,data);
+            return;
+        }
+        if(!this.roomData[this.currentTurn]){
+            console.log("socket不存在>>>")
+            return;
+        }
         if(this.roomData[this.currentTurn].socket!==socket){
             console.log("操作错误 非当前回合玩家 无法操作",data.type)
             return;
@@ -152,8 +184,8 @@ class GameHandle {
             case "turn_end":
                 this.turnEnd(socket,data);
                 break;
-            case "game_surrender":
-                this.gameSurrender(socket,data);
+            // case "game_surrender":
+            //     this.gameSurrender(socket,data);
                 break;
             case "card_use":
                 this.cardUse(socket,data);
@@ -265,7 +297,7 @@ class GameHandle {
     //================卡牌使用》》》
     cardUse(socket,data){
         let card=this.roomData[this.currentTurn].handCards[data.index];
-        console.log(data.index,"使用卡牌",card);
+        console.log(data.index,"手卡数",this.roomData[this.currentTurn].handCards.length,"使用卡牌",card);
         // if(this.getTableCardByType(this.currentTurn,card.cardType)==(card.cardType==1?GameHandle.TABLEGENERAL_LIMIT:GameHandle.TABLEMAGIC_LIMIT)){
         //     console.log(card.cardType,"桌面卡牌满了 无法使用",card);
         //     return;
@@ -298,6 +330,7 @@ class GameHandle {
         console.log(useCard.owner,"使用武将卡",useCard.effect);
         //处理召唤逻辑
         useCard.initEffect();//初始卡牌buff
+        useCard.initAttackCount();//初始化攻击次数
 
         this.roomData.orderCount++;
         useCard.addOrder(this.roomData.orderCount);//登场顺序
@@ -343,15 +376,25 @@ class GameHandle {
                 break;
             case 301://破坏 破坏默认不会破坏本身
                 this.destroyCard(effect,useCard);
+                break;
+            case 303://返回手卡
+                this.cardToHand(effect,useCard);
+                break;    
+            case 304://返回卡组
+                this.cardToRemain(effect,useCard);   
+                break;  
+            case 305://获得卡牌
+                this.effectGetCard(effect,useCard);   
+                break; 
             case 401://添加buff
                 // this.destroyCard(effect,useCard);
                 this.addBuff(effect,useCard);
 
         }
     }
-    //破坏卡牌  &&this.judgeCondition("hp",effect.hp,this.roomData[player].hp)
+    //301破坏卡牌  &&this.judgeCondition("hp",effect.hp,this.roomData[player].hp)
     destroyCard(effect,useCard){
-        let player=useCard.owner;
+        // let player=useCard.owner;
         let arrCard=this.getConditionCard(effect,useCard);
         for(let i=arrCard.length-1;i>-1;i--){
             let arrCardOne=arrCard[i];
@@ -360,6 +403,63 @@ class GameHandle {
             this.socketUpdateCard(arrCardOne.owner,arrCardOne.uid,-1,0);
         }
     }  
+    //303返回手卡
+    cardToHand(effect,useCard){
+        // let player=useCard.owner;
+        let arrCard=this.getConditionCard(effect,useCard);
+        for(let i=arrCard.length-1;i>-1;i--){
+            let arrCardOne=arrCard[i];
+            if(this.roomData[arrCardOne.owner].handCards.length<GameHandle.HANDCARD_LIMIT){
+                arrCardOne.removeAllBuff();
+                this.roomData[arrCardOne.owner].handCards.push(arrCardOne);
+            }
+            this.removeCard(arrCardOne.owner,arrCardOne.uid);//,"tableCards"
+            this.socketUpdateCard(arrCardOne.owner,arrCardOne.uid,-2,0);
+            console.log(this.roomData[arrCardOne.owner].handCards.length,"<<<返回手牌后的手牌数量 使用者手牌数>",this.roomData[useCard.owner].handCards.length,);
+        }
+
+    } 
+    //304返回卡组
+    cardToRemain(effect,useCard){
+        let arrCard=this.getConditionCard(effect,useCard);
+        for(let i=arrCard.length-1;i>-1;i--){
+            let arrCardOne=arrCard[i];
+            // if(this.roomData[useCard.owner].handCards.length<GameHandle.HANDCARD_LIMIT){
+                arrCardOne.removeAllBuff();
+                this.insertRandom(this.roomData[arrCardOne.owner].remainCards,arrCardOne);
+                // this.roomData[useCard.owner].remainCards.push(arrCardOne);
+            // }
+            this.removeCard(arrCardOne.owner,arrCardOne.uid);//,"tableCards"
+            this.socketUpdateCard(arrCardOne.owner,arrCardOne.uid,-3,0);
+        }
+    }
+    //305获得卡牌
+    effectGetCard(effect,useCard){
+        let arrCard=this.getConditionCard(effect,useCard);
+        for(let i=arrCard.length-1;i>-1;i--){
+            let arrCardOne=arrCard[i];
+            // console.log("305获得卡牌数据》》",arrCardOne)
+            if(this.roomData[useCard.owner].handCards.length<GameHandle.HANDCARD_LIMIT){
+                //根据effect.obj 需要分类判断获得对象 暂时未处理 只做了卡牌使用者
+                if(effect.pos==4){//系统卡特殊处理   
+                    let newCard=new Card(arrCardOne);
+                    newCard.updateOwner(useCard.owner);
+                    this.roomData[useCard.owner].handCards.push(newCard);
+                    this.socketUpdateCard(newCard.owner,newCard.uid,2,newCard,4);//获得卡需要卡牌数据
+                }else{
+                    arrCardOne.removeAllBuff();
+                    this.roomData[useCard.owner].handCards.push(arrCardOne);
+                    if(effect.pos==3){//从卡组获得 需要移除卡组的卡
+                        this.removeCard(arrCardOne.owner,arrCardOne.uid,"remainCards");//,"tableCards"
+                    }
+                    this.socketUpdateCard(arrCardOne.owner,arrCardOne.uid,2,arrCardOne,effect.pos);//获得卡需要卡牌数据
+                } 
+            }
+
+            // if(effect.pos<4)this.removeCard(arrCardOne.owner,arrCardOne.uid);//非系统卡
+            
+        }
+    }   
     //添加buff
     addBuff(effect,useCard){
         let player=useCard.owner;
@@ -371,7 +471,7 @@ class GameHandle {
             
         }
     }
-    //根据条件筛选出卡池  (用于破坏 召唤 获得 buff对象)
+    //根据条件筛选出卡池  (用于破坏 移除返回手牌卡组 召唤 获得 buff对象)
     getConditionCard(effect,useCard){
         let player=useCard.owner;
         let arr=[];
@@ -384,18 +484,18 @@ class GameHandle {
             let cardPoolOne=cardPool[i];
             if(cardPoolOne.uid==useCard.uid) {
                 if(effect.id==301||effect.noself==1)
-                continue;//破坏卡默认排除自身 判断301 401 501
+                continue;//破坏卡默认排除自身 判断301破坏 401添加buff 501
             }    
             if(this.judgeCondition("cardType",effect.cardType,cardPoolOne.cardType)&&this.judgeCondition("force",effect.force,cardPoolOne.force)&&
             this.judgeCondition("rare",effect.rare,cardPoolOne.rare)&&this.judgeCondition("name",effect.name,cardPoolOne.name)&&
-            this.judgeCondition("atk",effect.atk,cardPoolOne.getAttack()) ){
+            this.judgeCondition("atk",effect.atk,effect.pos==4?cardPoolOne.attack:cardPoolOne.getAttack()) ){
                 cardPoolNew.push(cardPoolOne);
             }
         }
-
+        console.log(cardPoolNew.length,"<<<cardPoolNew 条件过滤处理");
         //随机或取对象
         let cardNum=cardPoolNew.length;
-        let arrRan=(effect.value>=cardNum||effect.value==-1)?cardPool:this.getArrRandom(effect.value,cardNum);
+        let arrRan=this.getArrRandom((effect.value>=cardNum||effect.value==-1)?cardNum:effect.value,cardNum);
         if(cardNum>0){
             for(let i=cardPoolNew.length-1;i>-1;i--){
                 if(arrRan.indexOf(i)!=-1){
@@ -403,42 +503,45 @@ class GameHandle {
                 }
             }
         }
+        console.log(arrRan,"<随机数组",arr.length,"effect.value>",effect.value);
         return arr;
     }         
     //获取满足条件的卡范围
     getCardPool(effect,player){
+
         let other=player=="one"?"two":"one";
         let arr=[];
         let key="";
-        if(effect.obj==4){//系统全卡组   召唤 获得卡等效果专用
-            arr=this.cardData;
+        if(effect.pos==4){//系统全卡组   召唤 获得卡等效果专用
+            return this.cardData;
         }
         if(effect.obj==1||effect.obj==3){
             key=player;
             if(effect.pos==1){
-                arr.concat(this.roomData[key].handCards);
+                arr=arr.concat(this.roomData[key].handCards);
             }
             if(effect.pos==2){
-                arr.concat(this.roomData[key].tableCards);
-                arr.concat(this.roomData[key].magicCards);
+                arr=arr.concat(this.roomData[key].tableCards);
+                arr=arr.concat(this.roomData[key].magicCards);
             }
             if(effect.pos==3){
-                arr.concat(this.roomData[key].remainCards);
+                arr=arr.concat(this.roomData[key].remainCards);
             }
         }
         if(effect.obj==2||effect.obj==3){
             key=other;
             if(effect.pos==1){
-                arr.concat(this.roomData[key].handCards);
+                arr=arr.concat(this.roomData[key].handCards);
             }
             if(effect.pos==2){
-                arr.concat(this.roomData[key].tableCards);
-                arr.concat(this.roomData[key].magicCards);
+                arr=arr.concat(this.roomData[key].tableCards);
+                arr=arr.concat(this.roomData[key].magicCards);
             }
             if(effect.pos==3){
-                arr.concat(this.roomData[key].remainCards);
+                arr=arr.concat(this.roomData[key].remainCards);
             }
         }
+        // console.log(this.roomData[key].tableCards.length,"《《桌上卡牌数量",effect.obj,effect.pos==2,"effect>>",effect)
         return arr;
     }
     //使用魔法卡
@@ -458,7 +561,27 @@ class GameHandle {
         let card=this.getCardByUID(data.uid,this.currentTurn,"tableCards");
         let target=this.getCardByUID(data.target,other,"tableCards");
         // if(this.roomData[other].tableCards.length==0){
-        //攻击逻辑处理
+        //攻击逻辑处理  攻击次数-1
+        if(card.attackCount==undefined) {
+            console.log("《《《《《《《《《《《《《《《《攻击次数不存在  卡组中的卡 有BUG???");
+            return;
+        }
+        if(card.attackCount<=0) {
+            console.log("《《《《《《《《《《《《《《《《攻击次数为0 无法攻击 是否有BUG");
+            return;
+        }
+        //嘲讽判断
+        if(target.getBuffById(101).length==0){
+            for(let i=0;i<this.roomData[other].tableCards.length;i++){
+                let cardOne=this.roomData[other].tableCards[i];
+                if(cardOne.getBuffById(101).length>0){
+                    console.log("《《《《《《《《必须优先攻击嘲讽武将》》》》》》》》》》");
+                    return;
+                }
+            }
+        }
+        //攻击次数-1
+        card.changeAttackCount(-1);
         //发送开始攻击消息
         this.socketCardAttack(this.currentTurn,data.uid,data.target);
         //判断触发陷阱卡
@@ -467,7 +590,7 @@ class GameHandle {
             console.log("触发陷阱");
             return;
         }
-        if(data.targetIndex==-1){
+        if(data.target==-1){
             //data.targetIndex-1 直接攻击
             console.log("other场上没有怪直接攻击");
             this.directAttack(card);
@@ -539,11 +662,12 @@ class GameHandle {
     }
     //判断处理卡牌死亡
     judgeDeath(card){
-        let hasBuff=card.getBuffById(102);
-        if(hasBuff){
+        // let hasBuff=card.getBuffById(102);
+        let buffD=card.getBuffById(102);
+        if(buffD.length>0){
             card.removeBuff(102);
             //发送更新buff消息
-            this.socketUpdateBuff(card.owner,card.uid,hasBuff.uid,102,-1,0);
+            this.socketUpdateBuff(card.owner,card.uid,buffD[0].uid,102,-1,0);
             return false;
         }else{
             let death=card.death;
@@ -566,10 +690,10 @@ class GameHandle {
     removeCard(key,uid,type="all"){
         //this.roomData[key][type].splice(cardIndex,1);
         if(type=="all"){
-            if(this.removeCard(key,uid,"tableCards")) return;
-            if(this.removeCard(key,uid,"magicCards")) return;
-            if(this.removeCard(key,uid,"handCards")) return;
-            if(this.removeCard(key,uid,"remainCards")) return;
+            if(this.removeCard(key,uid,"tableCards")) return true;
+            if(this.removeCard(key,uid,"magicCards")) return true;
+            if(this.removeCard(key,uid,"handCards")) return true;
+            if(this.removeCard(key,uid,"remainCards")) return true;
         }else{
             let cardList=this.roomData[key][type];
             for(let i=0;i<cardList.length;i++){
@@ -640,6 +764,11 @@ class GameHandle {
         }
         return array;
     }
+    //卡牌插入卡组随机位置
+    insertRandom(arr,element){
+        var position = Math.floor(Math.random() * (arr.length + 1));
+        arr.splice(position, 0, element);
+    }
     //条件判断
     judgeCondition(key,condition,value){
         if(condition==undefined) return true;//属性不存在跳过判断直接返回true
@@ -654,12 +783,13 @@ class GameHandle {
                 break;
             case "atk":
             case "hp":
+                // console.log(Number(condition.substring(1)),"<条件",key,"条件检查>>卡的值",value)
                 if(condition.charAt(0)=="="){
                     if(Number(condition.substring(1))==value) return true;
                 }else if(condition.charAt(0)==">"){
-                    if(Number(condition.substring(1))>=value) return true;
-                }else if(condition.charAt(0)=="<"){
                     if(Number(condition.substring(1))<=value) return true;
+                }else if(condition.charAt(0)=="<"){
+                    if(Number(condition.substring(1))>=value) return true;
                 }
                 break;
             
@@ -668,7 +798,7 @@ class GameHandle {
     }
 }
 //静态变量
-GameHandle.TURN_TIME=30;//单回合操作时间 秒
+GameHandle.TURN_TIME=20;//单回合操作时间 秒
 GameHandle.HANDCARD_COUNT = 3;//起始手牌数量
 GameHandle.HANDCARD_LIMIT = 8;//手牌上限
 GameHandle.TABLEGENERAL_LIMIT = 5;//武将卡上限

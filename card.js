@@ -45,6 +45,15 @@ class Card {
             }
         }
     }
+    //初始化重置攻击次数
+    initAttackCount(value=1){
+        this.attackCount=value;
+    }
+    //改变攻击次数
+    changeAttackCount(value){
+        this.attackCount+=value;
+        if(this.attackCount<0) this.attackCount=0;
+    }
     //登场次序
     addOrder(order){
         this.order=order;
@@ -67,30 +76,56 @@ class Card {
             this.buffList.push({uid:Card.BUFF_UID,id:buffId,value:value})
             uid=Card.BUFF_UID;
         }
+        console.log(uid,"《《《《uid ==添加buff",hasBuff?"叠加":"获得新的",buffId);
         return uid;
     }
-    //移除状态
+    //根据buffid移除buff
     removeBuff(buffId){
         for(let i=0;i<this.buffList.length;i++){
             let buff=this.buffList[i];
             if(buff.id==buffId){
                 this.buffList.splice(i,1);
+                // break;
+            }
+        }
+    }
+    //根据uid移除buff
+    removeBuffByUid(uid){
+        for(let i=0;i<this.buffList.length;i++){
+            let buff=this.buffList[i];
+            if(buff.uid==uid){
+                this.buffList.splice(i,1);
                 break;
             }
         }
     }
+    //移除所有Buff
     removeAllBuff(){
         this.buffList=[];
     }
     //根据buffid获取buff
     getBuffById(buffId){
+        let arr=[];
         for(let i=0;i<this.buffList.length;i++){
             let buff=this.buffList[i];
             if(buff.id==buffId){
+                arr.push(buff);
+            }
+        }
+        return arr;
+    }
+    getBuffByUid(uid){
+        for(let i=0;i<this.buffList.length;i++){
+            let buff=this.buffList[i];
+            if(buff.uid==uid){
                 return buff;
             }
         }
         return null;
+    }
+    //获取可攻击次数
+    getAttackCount(){
+
     }
     //获取实际攻击力
     getAttack(){
@@ -111,6 +146,7 @@ class Card {
         obj.uid=this.uid;
         obj.id=this.id;
         // obj.owner=this.owner;
+        obj.attackCount=this.attackCount;//攻击次数
         obj.attack=this.getAttack();
         // obj.buffList
         // obj.buffList=[];
