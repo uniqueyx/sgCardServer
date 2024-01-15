@@ -15,7 +15,7 @@ class Card {
         this.force=data.force;//势力
         this.rare=data.rare;//稀有度
         this.attack=data.attack;
-        this.need=data.need;//使用条件
+        this.need=JSON.parse(data.need);//使用条件
         this.effect=data.effect;//初始效果buff
         this.appear=JSON.parse(data.appearEffect);//战吼
         // console.log(typeof(this.appear),this.appear.length);

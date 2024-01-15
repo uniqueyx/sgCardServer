@@ -22,14 +22,16 @@ class GameHandle {
     initGame(){
         this.gameState=2;
         console.log(this.roomData.roomId,"游戏初始化");
-        //发送开始游戏
-        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user});
-        this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:this.roomData.one.user});
         
         //随机出先攻 开始回合
         let first=Math.random() * 2;//Math.floor(Math.random() * 2);
         this.roomData.firstTurn=first<1?"one":"two";
         console.log("firstTurn>>>",this.roomData.firstTurn);
+
+        //发送开始游戏
+        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user,first:this.roomData.firstTurn=="one"});
+        this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:this.roomData.one.user,first:this.roomData.firstTurn=="two"});
+        
 
         //初始化士气
         this.roomData.orderCount=0;
@@ -79,14 +81,26 @@ class GameHandle {
         // let cardList=[10001,10001,10001,10001,10001,10001,10002,10002,10002,10002,10002,10002,
         //     10003,10003,10003,10003,10003,10003,
         //     10004,10004,10004,10004,10004,10004,10005,10005,10005,10005,10005,10005];
+        let arrRare=[10209,10210,10309,10310,20002,20006]
         let cardList=[];
         let num=10;
-        let repeat=4;
-        for(let i=2;i<num;i++){
+        let numMagic=5;
+        let repeat=2;
+        let jKey=key=="one"?10201:10301;
+        let mKey=key=="one"?20006:20001;
+        for(let i=0;i<num;i++){
             for(let j=0;j<repeat;j++){
-                cardList.push(10001+i);
+                if(arrRare.indexOf(jKey+i)!=-1&&cardList.indexOf(jKey+i)!=-1) continue;
+                cardList.push(jKey+i);
             }
         }
+        for(let i=0;i<numMagic;i++){
+            for(let j=0;j<repeat;j++){
+                if(arrRare.indexOf(mKey+i)!=-1&&cardList.indexOf(mKey+i)!=-1) continue;
+                cardList.push(mKey+i);
+            }
+        }
+        cardList.push(21002);//天崩地裂
         this.shuffle(cardList);
         console.log("cardList>>",cardList)
         let newList=[];
@@ -142,7 +156,7 @@ class GameHandle {
         this.roomData[key].socket.emit("GAME",{type:"card_attack",isMe:true,uid:uid,target:target});
         this.roomData[other].socket.emit("GAME",{type:"card_attack",isMe:false,uid:uid,target:target});
     }
-    //更新单个卡牌信息 暂时只处理场上 pos获得专用参数4从系统 3从卡组 updateType(1 0 -1 -2 -3) 1召唤  2获得 -1破坏 -2返回手卡 -3返回卡组  
+    //更新单个卡牌信息 暂时只处理场上 pos获得专用参数4从系统 3从卡组 updateType(3 2 1 0 -1 -2 -3) 1召唤武将 2获得 3放置陷阱 -1破坏 -2返回手卡 -3返回卡组  
     socketUpdateCard(key,uid,type,card,pos=0){
         if(type==1) console.log("update_card>>",key,uid,card.cardName);
         let other=key=="one"?"two":"one";
@@ -302,6 +316,8 @@ class GameHandle {
         //     console.log(card.cardType,"桌面卡牌满了 无法使用",card);
         //     return;
         // }
+        
+
         if(card.cardType==1&&this.roomData[this.currentTurn].tableCards.length==GameHandle.TABLEGENERAL_LIMIT){
             console.log(card.cardType,"桌面武将卡牌满了 无法使用",card);
             return;
@@ -310,10 +326,33 @@ class GameHandle {
             console.log(card.cardType,"魔法陷阱卡区域满了 无法使用",card);
             return;
         }
+        //判断卡牌特殊召唤条件
+        // console.log("判断 特招条件",card.need);
+        let useType=0;
+        if(card.cardType==1){
+            let judgeNeedResult=this.judgeCardNeed(card);
+            if(judgeNeedResult==-1){
+                console.log(card.cardType,"特招条件不满足 是否有BUG》》》》》》》》》》》》》》》》》》》》",card);
+                return;
+            }
+            else if(judgeNeedResult==0)  {
+                if(this.roomData[this.currentTurn].useGeneralTimes==0){
+                    console.log(card.cardType,"通常召唤次数不足 是否有BUG》》》》》》》》》》》》》》》》》》》》",card);
+                    return;
+                }
+                console.log("通招成功>>>",card.cardName)
+                this.roomData[this.currentTurn].useGeneralTimes--;
+                useType=1;
+            }else{
+                console.log("特招成功>>>》》》》》》",card.cardName)
+                useType=2;
+            }  
+        }
+          
         //告诉客户端使用卡牌成功
         let other=this.currentTurn=="one"?"two":"one";
-        this.roomData[this.currentTurn].socket.emit("GAME",{type:"card_used",isMe:true,index:data.index,id:card.id});
-        this.roomData[other].socket.emit("GAME",{type:"card_used",isMe:false,index:data.index,id:card.id});
+        this.roomData[this.currentTurn].socket.emit("GAME",{type:"card_used",isMe:true,index:data.index,id:card.id,useType:useType});
+        this.roomData[other].socket.emit("GAME",{type:"card_used",isMe:false,index:data.index,id:card.cardType==3?0:card.id,useType:useType});
         //
         //处理使用效果
         let useCard=this.roomData[this.currentTurn].handCards.splice(data.index,1)[0];
@@ -324,6 +363,24 @@ class GameHandle {
         if(useCard.cardType>1) this.useMagicCard(useCard);
         // this.roomData[this.currentTurn].tableCards.push(useCard);
         this.updateCardBuff();
+    }
+    //使用魔法卡 陷阱卡
+    useMagicCard(useCard){
+        console.log(useCard.cardType,useCard.cardName,useCard.id,"使用魔法卡",useCard.effect);
+        this.roomData.orderCount++;
+        useCard.addOrder(this.roomData.orderCount);//登场顺序
+        // this.socketUpdateCard(this.currentTurn,useCard.uid,1,useCard);//召唤武将
+        if(useCard.cardType==3) {
+            this.socketUpdateCard(this.currentTurn,useCard.uid,3,useCard);//召唤武将
+            this.roomData[this.currentTurn].magicCards.push(useCard);//卡加入桌面魔法卡组
+        }
+        //处理战吼   魔法卡直接发动效果
+        if(useCard.cardType==2){
+            for(let i=0;i<useCard.appear.length;i++){
+                console.log(useCard.appear[i].id,useCard.appear[i].obj,"魔法卡 战吼效果",useCard.appear[i].value,"发动卡玩家",useCard.owner)
+                this.appearEffect(useCard.appear[i],useCard);
+            }
+        }
     }
     //使用武将卡 召唤武将
     useGeneralCard(useCard){
@@ -343,8 +400,51 @@ class GameHandle {
                 this.appearEffect(useCard.appear[i],useCard);
             }
         }
-        
     }
+    //判断能否特招  need
+    judgeCardNeed(card){
+        if(card.need==0) return 0;
+        let bool=0;
+        for(let i=0;i<card.need.length;i++){
+            // console.log(useCard.appear[i].id,useCard.appear[i].obj,"战吼效果",useCard.appear[i].value,"玩家",useCard.owner)
+            if(this.judgeCardNeedOne(card.need[i],card)) bool++;
+        }
+        console.log(bool,"特招条件判断",card.need.length)
+        if(bool==card.need.length) return 1;
+        else return -1;
+    }
+    judgeCardNeedOne(effect,card){
+        let player=card.owner;
+        let other=player=="one"?"two":"one";
+        switch (effect.id){
+            case 901://存在卡数量
+                // let arrCard=this.getConditionCard(effect,useCard);
+                // let player=useCard.owner;
+                // let arr=[];
+                // let other=player=="one"?"two":"one";
+                let cardPool=this.getCardPool(effect,player);//获取卡牌的位置数组
+                console.log(cardPool.length,"<<<cardpool");
+                //条件过滤处理
+                let cardPoolNew=this.getConditionCardPool(cardPool,effect,card);
+                console.log(cardPoolNew.length,"effect.num>",effect.num,"<<<cardPoolNew 条件过滤处理");
+                return this.judgeCondition("num",effect.num,cardPoolNew.length);
+                break;
+            case 902://士气
+                // effect.obj==1
+                let hp1=true;
+                let hp2=true;
+                if(effect.obj==1||effect.obj==3){
+                    hp1=this.judgeCondition("hp",effect.hp,this.roomData[player].hp)
+                }
+                if(effect.obj==2||effect.obj==3){
+                    hp2=this.judgeCondition("hp",effect.hp,this.roomData[other].hp)
+                }
+                console.log(hp1,"hp条件判断",hp2)
+                return hp1&&hp2;
+                break;    
+        }    
+    }
+
     //处理战吼  亡语等效果
     appearEffect(effect,useCard){
         let player=useCard.owner;
@@ -455,9 +555,7 @@ class GameHandle {
                     this.socketUpdateCard(arrCardOne.owner,arrCardOne.uid,2,arrCardOne,effect.pos);//获得卡需要卡牌数据
                 } 
             }
-
             // if(effect.pos<4)this.removeCard(arrCardOne.owner,arrCardOne.uid);//非系统卡
-            
         }
     }   
     //添加buff
@@ -480,18 +578,19 @@ class GameHandle {
         let cardPoolNew=[];
         console.log(cardPool.length,"<<<cardpool");
         //条件过滤处理
-        for(let i=0;i<cardPool.length;i++){
-            let cardPoolOne=cardPool[i];
-            if(cardPoolOne.uid==useCard.uid) {
-                if(effect.id==301||effect.noself==1)
-                continue;//破坏卡默认排除自身 判断301破坏 401添加buff 501
-            }    
-            if(this.judgeCondition("cardType",effect.cardType,cardPoolOne.cardType)&&this.judgeCondition("force",effect.force,cardPoolOne.force)&&
-            this.judgeCondition("rare",effect.rare,cardPoolOne.rare)&&this.judgeCondition("name",effect.name,cardPoolOne.name)&&
-            this.judgeCondition("atk",effect.atk,effect.pos==4?cardPoolOne.attack:cardPoolOne.getAttack()) ){
-                cardPoolNew.push(cardPoolOne);
-            }
-        }
+        cardPoolNew=this.getConditionCardPool(cardPool,effect,useCard);
+        // for(let i=0;i<cardPool.length;i++){
+        //     let cardPoolOne=cardPool[i];
+        //     if(cardPoolOne.uid==useCard.uid) {
+        //         if(effect.id==301||effect.noself==1)
+        //         continue;//破坏卡默认排除自身 判断301破坏 401添加buff 501
+        //     }    
+        //     if(this.judgeCondition("cardType",effect.cardType,cardPoolOne.cardType)&&this.judgeCondition("force",effect.force,cardPoolOne.force)&&
+        //     this.judgeCondition("rare",effect.rare,cardPoolOne.rare)&&this.judgeCondition("name",effect.name,cardPoolOne.name)&&
+        //     this.judgeCondition("atk",effect.atk,effect.pos==4?cardPoolOne.attack:cardPoolOne.getAttack()) ){
+        //         cardPoolNew.push(cardPoolOne);
+        //     }
+        // }
         console.log(cardPoolNew.length,"<<<cardPoolNew 条件过滤处理");
         //随机或取对象
         let cardNum=cardPoolNew.length;
@@ -544,10 +643,23 @@ class GameHandle {
         // console.log(this.roomData[key].tableCards.length,"《《桌上卡牌数量",effect.obj,effect.pos==2,"effect>>",effect)
         return arr;
     }
-    //使用魔法卡
-    useMagicCard(useCard){
-        console.log("使用魔法卡",useCard.effect);
+    getConditionCardPool(cardPool,effect,useCard){
+        let cardPoolNew=[];
+        for(let i=0;i<cardPool.length;i++){
+            let cardPoolOne=cardPool[i];
+            if(cardPoolOne.uid==useCard.uid) {
+                if(effect.noself==1)//effect.id==301||
+                continue;//破坏卡默认排除自身 判断301破坏 401添加buff 501
+            }    
+            if(this.judgeCondition("cardType",effect.cardType,cardPoolOne.cardType)&&this.judgeCondition("force",effect.force,cardPoolOne.force)&&
+            this.judgeCondition("rare",effect.rare,cardPoolOne.rare)&&this.judgeCondition("name",effect.name,cardPoolOne.name)&&
+            this.judgeCondition("atk",effect.atk,effect.pos==4?cardPoolOne.attack:cardPoolOne.getAttack()) ){
+                cardPoolNew.push(cardPoolOne);
+            }
+        }
+        return cardPoolNew;
     }
+    
     //桌面卡牌效果变动更新
     updateCardBuff(){
 
@@ -571,7 +683,7 @@ class GameHandle {
             return;
         }
         //嘲讽判断
-        if(target.getBuffById(101).length==0){
+        if(target&&target.getBuffById(101).length==0){
             for(let i=0;i<this.roomData[other].tableCards.length;i++){
                 let cardOne=this.roomData[other].tableCards[i];
                 if(cardOne.getBuffById(101).length>0){
@@ -782,6 +894,7 @@ class GameHandle {
                 if(condition==value) return true;
                 break;
             case "atk":
+            case "num":    
             case "hp":
                 // console.log(Number(condition.substring(1)),"<条件",key,"条件检查>>卡的值",value)
                 if(condition.charAt(0)=="="){
@@ -798,7 +911,7 @@ class GameHandle {
     }
 }
 //静态变量
-GameHandle.TURN_TIME=20;//单回合操作时间 秒
+GameHandle.TURN_TIME=40;//单回合操作时间 秒
 GameHandle.HANDCARD_COUNT = 3;//起始手牌数量
 GameHandle.HANDCARD_LIMIT = 8;//手牌上限
 GameHandle.TABLEGENERAL_LIMIT = 5;//武将卡上限
