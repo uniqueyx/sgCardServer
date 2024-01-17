@@ -60,6 +60,8 @@ class Card {
     }
     //获得状态   101嘲讽 102圣盾 103潜行   
     addBuff(buffId,value=0){
+        buffId=parseInt(buffId);
+        value=parseInt(value);
         let uid=0;
         let hasBuff=false;
         for(let i=0;i<this.buffList.length;i++){
@@ -76,18 +78,21 @@ class Card {
             this.buffList.push({uid:Card.BUFF_UID,id:buffId,value:value})
             uid=Card.BUFF_UID;
         }
-        console.log(uid,"《《《《uid ==添加buff",hasBuff?"叠加":"获得新的",buffId);
+        console.log(uid,"《《《《uid ==添加buff",hasBuff?"叠加":"获得新的",buffId,"buffList",this.buffList);
         return uid;
     }
     //根据buffid移除buff
     removeBuff(buffId){
+        buffId=parseInt(buffId);
+        let removeList=[];
         for(let i=0;i<this.buffList.length;i++){
             let buff=this.buffList[i];
             if(buff.id==buffId){
-                this.buffList.splice(i,1);
+                removeList.push(this.buffList.splice(i,1));
                 // break;
             }
         }
+        return removeList;
     }
     //根据uid移除buff
     removeBuffByUid(uid){
@@ -101,10 +106,13 @@ class Card {
     }
     //移除所有Buff
     removeAllBuff(){
+        let removeList=this.buffList.concat();
         this.buffList=[];
+        return removeList;
     }
     //根据buffid获取buff
     getBuffById(buffId){
+        buffId=parseInt(buffId);
         let arr=[];
         for(let i=0;i<this.buffList.length;i++){
             let buff=this.buffList[i];

@@ -38,6 +38,10 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
     // arr1=arr1.concat(arr2);
     // arr1[0].id=3;
     // console.log(arr1,"arr",arr2);
+    // let arr1=[1,2];
+    // let arr2=arr1.concat();
+    // arr1=[];
+    // console.log(arr1,arr2);
 
     // let obj={o1:{o2:1,o3:2}};
     // let arr=[obj];
