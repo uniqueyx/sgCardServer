@@ -29,8 +29,8 @@ class GameHandle {
         console.log("firstTurn>>>",this.roomData.firstTurn);
 
         //发送开始游戏
-        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user,first:this.roomData.firstTurn=="one"});
-        this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:this.roomData.one.user,first:this.roomData.firstTurn=="two"});
+        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user,first:this.roomData.firstTurn=="one",gameState:this.gameState});
+        this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:this.roomData.one.user,first:this.roomData.firstTurn=="two",gameState:this.gameState});
         
 
         //初始化士气
@@ -48,14 +48,31 @@ class GameHandle {
         this.socketSendCards( this.roomData.one,this.roomData.two);
         this.socketSendCards( this.roomData.two,this.roomData.one);
 
-        
+        //换牌阶段
+        this.roomData.one.changeHand=false;
+        this.roomData.two.changeHand=false;
+        this.changeHandTimer=setTimeout(() => {
+            console.log("换牌操作时间到 自动开始回合");
+            this.roomData.one.changeHand=true;
+            this.roomData.two.changeHand=true;
+            this.gameState=3;
+            this.turnStart();
+        }, 30000); 
         //回合计时器
-        this.initTurnTimer();
-        this.turnNext(false);
-        // let other=this.roomData.firstTurn=="one"?"two":"one";
-        // this.roomData.turn++;
-        // this.roomData[this.roomData.firstTurn].socket.emit("GAME",{type:"turn_start",myTurn:true});
-        // this.roomData[other].socket.emit("GAME",{type:"turn_start",myTurn:false});
+        // this.initTurnTimer();
+        // this.turnNext(false);
+        
+    }
+    //回合开始 游戏正式开始计时
+    turnStart(){
+        //回合计时器
+        //2秒后执行
+        setTimeout(() => {
+            this.initTurnTimer();
+            this.turnNext(false);
+        }, 2000); 
+        // this.initTurnTimer();
+        // this.turnNext(false);
     }
     //初始化士气
     initHP(){
@@ -222,19 +239,59 @@ class GameHandle {
          if(this.gameState!=1) return;
           console.log("收到玩家准备1 ");
          if(this.roomData.one.user==data.user){
+            if(this.roomData.one.ready) return;
             this.roomData.one.ready=true;
          }else if(this.roomData.two.user==data.user){
+            if(this.roomData.two.ready) return;
             this.roomData.two.ready=true;
          }
         if(this.roomData.one.ready&&this.roomData.two.ready){
             console.log("双方玩家准备完毕 开始游戏initGame")
             this.initGame();//游戏开始
+            
         }
     }
     gameChangeHand(socket,data){
-        console.log("收到更换手牌");
-        
+        console.log("收到更换手牌",this.gameState);
+        if(this.gameState!=2) return;
+        if(this.roomData.one.user==data.user){
+            if(this.roomData.one.changeHand) return;
+            this.roomData.one.changeHand=true;
+            this.changeHandCard("one",data.cardList);
+         }else if(this.roomData.two.user==data.user){
+            if(this.roomData.two.changeHand) return;
+            this.roomData.two.changeHand=true;
+            this.changeHandCard("two",data.cardList);
+         }
+        if(this.roomData.one.changeHand&&this.roomData.two.changeHand){
+            console.log("双方更换手牌完毕 开始游戏回合turn");
+            clearTimeout(this.changeHandTimer);
+            this.gameState=3;
+            this.turnStart();
+        }
 
+    }
+    changeHandCard(key,cardList){
+        // console.log("更换手牌前",this.roomData[key].handCards);
+        for(let i=0;i<cardList.length;i++){
+            if(cardList[i]==0){
+                continue;
+            }
+            let card=this.getCardByUID(cardList[i],key,"handCards");
+            this.insertRandom(this.roomData[key].remainCards,card);
+            // this.removeCard(key,cardList[i],"handCards");
+            let cardNew=this.roomData[key].remainCards.shift();
+            // this.roomData[key].handCards.push(cardNew);
+            this.roomData[key].handCards.splice(i, 1, cardNew); 
+        }
+        // console.log("更换手牌后",this.roomData[key].handCards);
+
+        //this.insertRandom(this.roomData[arrCardOne.owner].remainCards,arrCardOne);
+        let arrHand=[];
+        for(let i=0;i<this.roomData[key].handCards.length;i++){
+            arrHand.push(this.roomData[key].handCards[i].getCardData());
+        }
+        this.roomData[key].socket.emit("GAME",{type:"card_changeHand",isMe:true,newList:arrHand,cardList:cardList});
     }
     turnEnd(socket,data){
         console.log("收到回合结束！",this.roomData.one.socket===socket,this.roomData.two.socket===socket);
