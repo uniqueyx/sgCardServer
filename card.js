@@ -25,7 +25,7 @@ class Card {
         this.buffList=[];
     }
     //说明
-    //buff数据结构 101嘲讽 102圣盾 103潜行       401 攻击变化 value值  
+    //buff数据结构 101嘲讽 102圣盾 103守护 104铁壁 105双击         401 攻击变化 value值  
     //类型  持续回合数  
     //=================类中函数
     //初始化归属  one/two
@@ -46,19 +46,22 @@ class Card {
         }
     }
     //初始化重置攻击次数
-    initAttackCount(value=1){
-        this.attackCount=value;
+    initAttackCount(onlyUpdate=false){
+        //判断是否有105双击
+        this.attackCount=this.getBuffById(Card.BUFF_DOUBLE).length>0?2:1;
+        if(!onlyUpdate)     this.attackedCount=0;
     }
     //改变攻击次数
-    changeAttackCount(value){
-        this.attackCount+=value;
-        if(this.attackCount<0) this.attackCount=0;
+    changeAttackCount(){
+        this.attackedCount++;
+        // this.attackCount+=value;
+        // if(this.attackCount<0) this.attackCount=0;
     }
     //登场次序
     addOrder(order){
         this.order=order;
     }
-    //获得状态   101嘲讽 102圣盾 103潜行   
+    //获得状态   101嘲讽 102圣盾 103守护 104铁壁 105双击     
     addBuff(buffId,value=0){
         buffId=parseInt(buffId);
         value=parseInt(value);
@@ -77,6 +80,8 @@ class Card {
             Card.BUFF_UID++;
             this.buffList.push({uid:Card.BUFF_UID,id:buffId,value:value})
             uid=Card.BUFF_UID;
+            // this.initAttackCount(true);
+            if(buffId==Card.BUFF_DOUBLE) this.attackCount=2;
         }
         console.log(uid,"《《《《uid ==添加buff",hasBuff?"叠加":"获得新的",buffId,"buffList",this.buffList);
         return uid;
@@ -92,6 +97,7 @@ class Card {
                 // break;
             }
         }
+        this.initAttackCount(true);
         return removeList;
     }
     //根据uid移除buff
@@ -103,11 +109,13 @@ class Card {
                 break;
             }
         }
+        this.initAttackCount(true);
     }
     //移除所有Buff
     removeAllBuff(){
         let removeList=this.buffList.concat();
         this.buffList=[];
+        this.initAttackCount(true);
         return removeList;
     }
     //根据buffid获取buff
@@ -149,12 +157,14 @@ class Card {
         return newAtt;
     }
     //发送给客户端的数据格式
-    getCardData(){
+    getCardData(onlyUid=false){
+        if(onlyUid) return {uid:this.uid};
         let obj={};
         obj.uid=this.uid;
         obj.id=this.id;
         // obj.owner=this.owner;
         obj.attackCount=this.attackCount;//攻击次数
+        obj.attackedCount=this.attackedCount;
         obj.attack=this.getAttack();
         // obj.buffList
         // obj.buffList=[];
@@ -176,5 +186,8 @@ Card.BUFF_UID=0;
 //BUFFID
 Card.BUFF_TAUNT=101;//嘲讽
 Card.BUFF_SHIELD=102;//圣盾
+Card.BUFF_PROTECT=103;//守护
+Card.BUFF_DEFENSE=104;//铁壁
+Card.BUFF_DOUBLE=105;//双击
 Card.BUFF_ATTACK=401;//攻击变化
 module.exports = Card;

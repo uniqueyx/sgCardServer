@@ -33,6 +33,9 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
         return;
     }
     
+    // let str="-15"
+    // let str2="5"
+    // console.log(parseInt(str)<0,str2<0)
     // let arr1=[]
     // let arr2=[{id:1},{id:2},{id:3}]
     // for(let i=arr2.length-1;i>-1;i--){
@@ -46,7 +49,15 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
     // let arr2=arr1.concat();
     // arr1=[];
     // console.log(arr1,arr2);
-
+    // let arr=[1,2,3,4];
+    // let arr1=[2,3,4];
+    // for(let i=0;i<arr.length;i++){
+    //     if(arr1.indexOf(arr[i])>-1) {
+    //         arr.splice(i,1);
+    //         i--
+    //     }    
+    // }
+    console.log(arr,"<<arr")
     // let obj={o1:{o2:1,o3:2}};
     // let arr=[obj];
     // let o4=obj.o1;
