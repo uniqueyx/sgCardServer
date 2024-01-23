@@ -12,6 +12,10 @@ class GameHandle {
         this.gameState=0;
     }
     //类中函数
+    //步骤加1 用于给客户端 做卡牌延迟展示效果 
+    addStep(){
+        this.stepCount++;
+    }
 
     //游戏准备
     readyGame(){
@@ -22,6 +26,7 @@ class GameHandle {
     initGame(){
         this.gameState=2;
         console.log(this.roomData.roomId,"游戏初始化");
+        this.stepCount=0;
         
         //随机出先攻 开始回合
         let first=Math.random() * 2;//Math.floor(Math.random() * 2);
@@ -100,6 +105,7 @@ class GameHandle {
         //     10004,10004,10004,10004,10004,10004,10005,10005,10005,10005,10005,10005];
         let arrRare=[10009,10010,10209,10210,10309,10310,20105,20205,20305,20002,20006]
         let ran1=Math.floor(Math.random()*4)+1;
+        // ran1=4;
         let cardList=[];
         let num=10;
         let numMagic=5;
@@ -118,11 +124,10 @@ class GameHandle {
                 cardList.push(mKey+i);
             }
         }
-        cardList.push(21002,21009);//天崩地裂 破咒结界
-        for(let i=0;i<7;i++){
-            // if(i<5)cardList.push(30001);
-            // cardList.push(30002);
-            cardList.push(30101+i);
+        cardList.push(21002,21009,21010,21011,30001,30002,30003,30004,30101,30104,30105,30106,30107);//天崩地裂 破咒结界
+        for(let i=0;i<9;i++){
+            // cardList.push(30101+i);
+            // cardList.push(10405);
         }
         // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
         // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
@@ -183,12 +188,12 @@ class GameHandle {
         this.roomData[key].socket.emit("GAME",{type:"card_attack",isMe:true,uid:uid,target:target});
         this.roomData[other].socket.emit("GAME",{type:"card_attack",isMe:false,uid:uid,target:target});
     }
-    //更新单个卡牌信息 暂时只处理场上 pos获得专用参数4从系统 3从卡组 updateType(3 2 1 0 -1 -2 -3 -4) 1召唤武将 2获得 3放置陷阱 -1破坏 -2返回手卡 -3返回卡组 -4陷阱卡发动  
+    //更新单个卡牌信息 暂时只处理场上 pos获得专用参数4从系统 3从卡组 updateType(3 2 1 0 -1 -2 -3 -4 -5) 1召唤武将 2获得 3放置陷阱 0 -1破坏 -2返回手卡 -3返回卡组 -4陷阱卡发动 -5守护 
     socketUpdateCard(key,uid,updateType,card,pos=0){
         console.log(updateType,"发送单个卡牌socketupdate_card>>",key,uid,card.cardName);
         let other=key=="one"?"two":"one";
-        this.roomData[key].socket.emit("GAME",{type:"card_update",isMe:true,uid:uid,updateType:updateType,value:(updateType==1||updateType==2||updateType==3||updateType==-4)?card.getCardData():0,pos:pos});
-        this.roomData[other].socket.emit("GAME",{type:"card_update",isMe:false,uid:uid,updateType:updateType,value:(updateType==1||updateType==2||updateType==3||updateType==-4)?card.getCardData(updateType==3):0,pos:pos});
+        this.roomData[key].socket.emit("GAME",{type:"card_update",isMe:true,uid:uid,updateType:updateType,value:(updateType==-1||updateType==1||updateType==2||updateType==3||updateType==-4)?card.getCardData():0,pos:pos});
+        this.roomData[other].socket.emit("GAME",{type:"card_update",isMe:false,uid:uid,updateType:updateType,value:(updateType==-1||updateType==1||updateType==2||updateType==3||updateType==-4)?card.getCardData(updateType==3):0,pos:pos});
     }
     //更新场上武将卡buff  updateType(1 0 -1)增加 更新 移除
     socketUpdateBuff(key,uid,buffUid,buffId,type,value){
@@ -366,7 +371,7 @@ class GameHandle {
     drawCard(currentTurn){
         // let currentTurn=this.currentTurn;
         //陷阱卡判断
-
+        let isTrap=this.checkTrap(1003,currentTurn);
         //判断是否有卡没有则失败
         let other=currentTurn=="one"?"two":"one";
         if(this.roomData[currentTurn].remainCards.length==0){
@@ -447,8 +452,12 @@ class GameHandle {
         //
         //处理使用效果
         let useCard=this.roomData[this.currentTurn].handCards.splice(data.index,1)[0];
-        //陷阱触发判断
-
+        //陷阱触发判断  判断卡牌反制
+        let isTrap=this.checkTrap(1010+card.cardType,card.owner);
+        if(isTrap){
+            console.log("卡牌反制成功 使用失败");
+            return;
+        }
         //进入卡牌使用逻辑处理
         if(useCard.cardType==1) this.useGeneralCard(useCard);
         if(useCard.cardType>1) this.useMagicCard(useCard);
@@ -597,10 +606,11 @@ class GameHandle {
             // this.judgeDeath(arrCardOne);
             if(arrCardOne.getBuffById(Card.BUFF_PROTECT).length>0){
                 console.log(arrCardOne.cardName+"有buff守护 不会被效果破坏");
+                this.socketUpdateCard(arrCardOne.owner,arrCardOne.uid,-5,0);
                 continue;
             }
             this.removeCard(arrCardOne.owner,arrCardOne.uid);//,"tableCards"
-            this.socketUpdateCard(arrCardOne.owner,arrCardOne.uid,-1,0);
+            this.socketUpdateCard(arrCardOne.owner,arrCardOne.uid,-1,arrCardOne);
         }
     }  
     //303返回手卡
@@ -852,18 +862,26 @@ class GameHandle {
         //发送开始攻击消息
         this.socketCardAttack(this.currentTurn,data.uid,data.target);
         //判断触发陷阱卡
-        let stopAttack=this.checkTrap(1005,card);
-        if(stopAttack){
-            console.log("触发陷阱 攻击卡没有了 攻击中断return");
-            return;
+        let isTrap=this.checkTrap(1005,card.owner);
+        if(isTrap){
+            let exitCard=this.getCardByUID(card.uid,card.owner,"tableCards");
+            console.log("陷阱效果处理完 card还在吗",exitCard);
+            if(!exitCard) {
+                console.log("触发陷阱 攻击卡没有了 攻击中断return");
+                return;
+            }
         }
+        // if(stopAttack){
+        //     console.log("触发陷阱 攻击卡没有了 攻击中断return");
+        //     return;
+        // }
         if(data.target==-1){
             //data.targetIndex-1 直接攻击
-                let directStopAttack=this.checkTrap(1006,card);
-                if(directStopAttack){
-                    console.log("触发陷阱 直接攻击 攻击卡没有了 攻击中断return");
-                    return;
-                }
+                // let directStopAttack=this.checkTrap(1006,card);
+                // if(directStopAttack){
+                //     console.log("触发陷阱 直接攻击 攻击卡没有了 攻击中断return");
+                //     return;
+                // }
 
             console.log("other场上没有怪直接攻击");
             this.directAttack(card);
@@ -871,9 +889,10 @@ class GameHandle {
         }
         this.generalAttack(card,target);//,data.index,data.targetIndex
     }
-    //检查陷阱卡触发 陷阱触发条件对方回合
-    checkTrap(trapId,card){
-        let owner=card.owner;
+    //检查陷阱卡触发 陷阱触发条件对方回合  owner参数对应need参数的Obj进行对比 (obj1表示对方回合 我方触发)
+    checkTrap(trapId,owner){
+        // let owner=card.owner;
+        let isTrap=false;
         let other=this.currentTurn=="one"?"two":"one";
         let magicCards=this.roomData[other].magicCards;
 
@@ -882,9 +901,10 @@ class GameHandle {
              // console.log("trapCard",trapCard)
              console.log(i,"trapCard.need",trapCard.need)
             let need=trapCard.need;
-            //判断 根据need.obj类型和攻击对象比对  是否触发
+            //判断 根据need.obj类型和触发对象类型比对  是否触发
             if( (need.obj==2&&trapCard.owner!=owner)||(need.obj==1&&trapCard.owner==owner)){
                 if(need.id==trapId){
+                    isTrap=true;
                     console.log(trapCard.cardName,trapCard.id,"满足触发陷阱",trapId);
                     //陷阱卡发动消息
                     this.removeCard(trapCard.owner,trapCard.uid);//,"tableCards"
@@ -898,10 +918,8 @@ class GameHandle {
                 }
             }
         }
-        let exitCard=this.getCardByUID(card.uid,card.owner,"tableCards");
-        console.log("陷阱效果处理完 card还在吗",exitCard);
-        if(!exitCard) return true;
-        return false;
+        return isTrap;
+        
     }
     //直接攻击
     directAttack(card){
@@ -964,14 +982,14 @@ class GameHandle {
         if(buffD.length>0){
             card.removeBuff(Card.BUFF_SHIELD);
             //发送更新buff消息
-            this.socketUpdateBuff(card.owner,card.uid,buffD[0].uid,Card.BUFF_SHIELD,-1,0);
+            this.socketUpdateBuff(card.owner,card.uid,buffD[0].uid,Card.BUFF_SHIELD,-1,1);//攻击移除圣盾1
             return false;
         }else{
             let death=card.death;
             let deathOwner=card.owner;
             //发送卡牌破坏消息
             console.log(card.owner,"judgeDeath",card.uid)
-            this.socketUpdateCard(card.owner,card.uid,-1,0);
+            this.socketUpdateCard(card.owner,card.uid,-1,card);
             this.removeCard(card.owner,card.uid,"tableCards");
             //处理亡语效果  判断条件 登场的卡
             if(card.order>0&&death.length>0){

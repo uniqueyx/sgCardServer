@@ -57,7 +57,7 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
     //         i--
     //     }    
     // }
-    console.log(arr,"<<arr")
+    // console.log(arr,"<<arr")
     // let obj={o1:{o2:1,o3:2}};
     // let arr=[obj];
     // let o4=obj.o1;
