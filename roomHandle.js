@@ -52,6 +52,7 @@ class RoomHandle {
         }
         if(!gameHandle){
             console.log("bug===>>收到game消息没有找到对应的gameHandle");
+            if(data.type== 'game_ready')    socket.emit("GAME",{type:"game_dissolve"});
             return;
         }
         gameHandle.gameHandle(socket,data);

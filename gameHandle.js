@@ -20,6 +20,7 @@ class GameHandle {
     //游戏准备
     readyGame(){
         this.gameState=1;
+        
     }
 
     //初始化游戏  回合开始 回合结束
@@ -124,10 +125,10 @@ class GameHandle {
                 cardList.push(mKey+i);
             }
         }
-        cardList.push(21002,21009,21010,21011,30001,30002,30003,30004,30101,30104,30105,30106,30107);//天崩地裂 破咒结界
+        cardList.push(21002,21009,21010,21011,30001,30002,30003,30104,30105,30106,30107);//天崩地裂 破咒结界
         for(let i=0;i<9;i++){
             // cardList.push(30101+i);
-            // cardList.push(10405);
+            // cardList.push(20104);
         }
         // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
         // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
@@ -251,6 +252,15 @@ class GameHandle {
          console.log("收到玩家准备 ");
          if(this.gameState!=1) return;
           console.log("收到玩家准备1 ");
+        if(!this.readyTimer){
+            this.readyTimer=setTimeout(() => {
+                console.log("有玩家没有准备 自动结束游戏");
+                this.roomData["one"].socket.emit("GAME",{type:"game_dissolve"});
+                this.roomData["two"].socket.emit("GAME",{type:"game_dissolve"});
+                console.log("gameOverCall 回调处理");
+                this.gameOverCall(this.roomData.roomId);
+            }, 20000); 
+        }  
          if(this.roomData.one.user==data.user){
             if(this.roomData.one.ready) return;
             this.roomData.one.ready=true;
@@ -259,9 +269,9 @@ class GameHandle {
             this.roomData.two.ready=true;
          }
         if(this.roomData.one.ready&&this.roomData.two.ready){
-            console.log("双方玩家准备完毕 开始游戏initGame")
+            console.log("双方玩家准备完毕 开始游戏initGame");
+            clearTimeout(this.readyTimer);
             this.initGame();//游戏开始
-            
         }
     }
     gameChangeHand(socket,data){

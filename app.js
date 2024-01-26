@@ -64,9 +64,9 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
     // arr.shift();
     // console.log(arr,"arr",o4)
     // console.log(cardData.length);
-    cardList=JSON.parse(cardData)
+    cardList=JSON.parse(cardData);
     server.listen(3005, function () {
-        console.log("listen");
+        console.log("listen 3005");
     });
     
     socketServer.on('connection', function (socket) {
