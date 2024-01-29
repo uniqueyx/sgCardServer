@@ -1,4 +1,5 @@
 let Card=require('./card');
+let GameDB=require('./gameDB');
 // 定义游戏玩家操作类
 class GameHandle {
     //构造函数
@@ -34,9 +35,9 @@ class GameHandle {
         this.roomData.firstTurn=first<1?"one":"two";
         console.log("firstTurn>>>",this.roomData.firstTurn);
 
-        //发送开始游戏
-        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user,first:this.roomData.firstTurn=="one",gameState:this.gameState});
-        this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:this.roomData.one.user,first:this.roomData.firstTurn=="two",gameState:this.gameState});
+        //发送开始游戏  GameDB.USER_DB.get
+        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:GameDB.USER_DB.get(this.roomData.two.user).nick,first:this.roomData.firstTurn=="one",gameState:this.gameState});
+        this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:GameDB.USER_DB.get(this.roomData.one.user).nick,first:this.roomData.firstTurn=="two",gameState:this.gameState});
         
 
         //初始化士气
@@ -179,7 +180,7 @@ class GameHandle {
         }
         let arrOtherMagic=[];
         for(let i=0;i<other.magicCards.length;i++){
-            arrOtherMagic.push(other.magicCards[i].getCardData());
+            arrOtherMagic.push(other.magicCards[i].getCardData(true));
         }
         player.socket.emit("GAME",{type:"card_info",handCards:arrHand,tableCards:arrTable,magicCards:arrMagic,otherTableCards:arrOtherTable,otherMagicCards:arrOtherMagic,remainCards:player.remainCards.length,otherHandCards:arrOtherHand,otherRemainCards:other.remainCards.length});
     }
@@ -250,11 +251,15 @@ class GameHandle {
     }
     gameReady(socket,data){
          console.log("收到玩家准备 ");
-         if(this.gameState!=1) return;
-          console.log("收到玩家准备1 ");
+         if(this.gameState!=1) {
+            console.log("玩家重连进入  需要发送游戏数据");
+            this.sendData(data.user);
+            return;
+        }    
+        //   console.log("收到玩家准备1 ");
         if(!this.readyTimer){
             this.readyTimer=setTimeout(() => {
-                console.log("有玩家没有准备 自动结束游戏");
+                console.log("有玩家没有准备 超时 自动结束游戏");
                 this.roomData["one"].socket.emit("GAME",{type:"game_dissolve"});
                 this.roomData["two"].socket.emit("GAME",{type:"game_dissolve"});
                 console.log("gameOverCall 回调处理");
@@ -416,7 +421,10 @@ class GameHandle {
         //     console.log("使用破咒结界bufftwo>>",this.roomData["two"]["tableCards"]);
         // }
         
-
+        if(!card){
+            console.log("cardUse卡牌没找到 return");
+            return;
+        }
         if(card.cardType==1&&this.roomData[this.currentTurn].tableCards.length==GameHandle.TABLEGENERAL_LIMIT){
             console.log(card.cardType,"桌面武将卡牌满了 无法使用",card);
             return;
@@ -848,6 +856,10 @@ class GameHandle {
         let card=this.getCardByUID(data.uid,this.currentTurn,"tableCards");
         let target=this.getCardByUID(data.target,other,"tableCards");
         // if(this.roomData[other].tableCards.length==0){
+        if(!card){
+            console.log("cardAttack card没找到 有BUG？？？")
+            return;
+        }
         //攻击逻辑处理  攻击次数-1
         if(card.attackCount==undefined) {
             console.log("《《《《《《《《《《《《《《《《攻击次数不存在  卡组中的卡 有BUG???");
@@ -1064,10 +1076,14 @@ class GameHandle {
     sendData(user){
         let key=this.roomData.one.user==user?"one":"two";
         let other=key=="one"?"two":"one";
-        //发送回合数据
-        this.roomData[key].socket.emit("GAME",{type:"game_data",turn:this.roomData.turn,myTurn:this.currentTurn==key,
-            hp:this.roomData[key].hp,otherName:this.roomData[other].user,otherHP:this.roomData[other].hp
+        //发送回合数据  GameDB.USER_DB.get(this.roomData[other].user).nick
+        this.roomData[key].socket.emit("GAME",{type:"game_data",turn:this.roomData.turn,changeHand:this.roomData[key].changeHand,
+            myTurn:this.currentTurn==key,turnTime:this.roomData.turnTime,useGeneralTimes:this.roomData[key].useGeneralTimes,
+            gameState:this.gameState,
+            hp:this.roomData[key].hp,otherName:GameDB.USER_DB.get(this.roomData[other].user).nick,otherHP:this.roomData[other].hp
         });
+        
+        // this.roomData[key].socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user,first:this.roomData.firstTurn=="one",gameState:this.gameState});
         //发送卡牌数据
         this.socketSendCards(this.roomData[key],this.roomData[other]);
         // player.socket.emit("GAME",{type:"card_info",handCards:arrHand,tableCards:arrTable,otherTableCards:other.tableCards.length,remainCards:player.remainCards.length,otherHandCards:other.handCards.length,otherRemainCards:other.remainCards.length});

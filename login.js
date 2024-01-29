@@ -68,7 +68,7 @@ app.post("/register", (req, res)=> {
       // cache.set(token, account);
       console.log(account,"登录成功",result[0].nick);
       res.json(
-        {result:1}
+        {result:1,data:result[0]}
         // createRes(CodeEnum.LoginSuccess, {
         //   token,
         // })

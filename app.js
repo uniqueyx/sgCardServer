@@ -4,6 +4,8 @@ let cors = require('cors');
 let bodyParser = require('body-parser');
 let socket = require("socket.io");
 const fs = require('fs');
+let GameDB=require('./gameDB');
+const createDBConnection=require('./db');
 // let sh=require('./socketHandle');
 let rh=require('./roomHandle');
 
@@ -16,6 +18,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 
+//数据库连接
+const connection = createDBConnection();
+
 let server = http.createServer(app);
 //let socketServer = socket(server);
 let socketServer = socket(server,{cors:{origin:'*'}});
@@ -26,13 +31,70 @@ let waitList=[];
 //全卡数据
 let cardList=[];
 
+initSocket=()=>{
+    console.log("initSocket");
+}
+getDbUser=(uid,callback)=>{
+    console.log("getDbUser",uid);
+    connection.query(`select * from user where uid = ?`, [uid], (err, result) => {
+        if (err) {
+          console.log("数据库异常")
+          return;
+        }
+        if(result.length>0){
+            console.log("result[0]>>",result[0]);
+            GameDB.USER_DB.set(result[0].uid,result[0]);
+            callback(result);
+        }else console.log("没有玩家数据？？？？？");;
+        
+    });    
+}
+
+initUserConnect=(socket,roomHandle,data)=>{
+    console.log("initUserConnect处理连接 重连  roomlist长度",roomList.length);
+    let inGame=false;
+            let roomData=null;
+            let gameHandle=null;
+            //获取房间或游戏状态
+            for(let i=0;i<roomList.length;i++){
+                console.log("roomList>>",roomList[i].roomData.one.user,roomList[i].roomData.two.user)
+                if(roomList[i].roomData.one.user==data.user||roomList[i].roomData.two.user==data.user){
+                    console.log("游戏中 进入重连逻辑>>",data.user);
+                    if(roomList[i].roomData.one.user==data.user){
+                        console.log(socket.id,"socket是否相同",roomList[i].roomData.one.socket===socket);
+                        roomList[i].roomData.one.socket=socket;
+                    }
+                    if(roomList[i].roomData.two.user==data.user){
+                        console.log(socket.id,"socket是否相同",roomList[i].roomData.two.socket===socket);
+                        roomList[i].roomData.two.socket=socket;
+                    }
+                    inGame=true;
+                    roomData=roomList[i].roomData;
+                    gameHandle=roomList[i].gameHandle;
+                    break;
+                }
+            }
+            if(inGame) {
+                console.log("ingame>>>> 发送重连数据？？",gameHandle==null,roomHandle.roomData==undefined);
+                // let roomHandle=new rh(roomList,waitList,cardList,socketServer);
+                if(roomHandle.roomData==undefined){
+                    roomHandle.roomData=roomData;
+                    // roomHandle.gameHandle=gameHandle;
+                }
+                //通知客户端 在游戏中
+                socket.emit("GAME",{type:"game_return"});//,turn:this.roomData.turn
+                // gameHandle.sendData(data.user);//发送重连数据给前端
+            }
+}
+
+
 //加载卡片数据
 fs.readFile('sg.json', 'utf8', (err, cardData) => {
     if (err) {
         console.error(err);
         return;
     }
-    
+    // this.test1();
     // let str="-15"
     // let str2="5"
     // console.log(parseInt(str)<0,str2<0)
@@ -75,38 +137,41 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
         // let socketHandle=new sh(socket);
         roomHandle=new rh(roomList,waitList,cardList,socketServer);
         socket.on('CONNECT',  (data) => {
-            console.log("收到连接成功客户端身份验证",data);
-            let inGame=false;
-            let roomData=null;
-            let gameHandle=null;
-            //获取房间或游戏状态
-            for(let i=0;i<roomList.length;i++){
-                console.log("roomList>>",roomList[i].roomData.one.user,roomList[i].roomData.two.user)
-                if(roomList[i].roomData.one.user==data.user||roomList[i].roomData.two.user==data.user){
-                    console.log("游戏中 进入重连逻辑>>",data.user);
-                    if(roomList[i].roomData.one.user==data.user){
-                        console.log(socket.id,"socket是否相同",roomList[i].roomData.one.socket===socket);
-                        roomList[i].roomData.one.socket=socket;
-                    }
-                    if(roomList[i].roomData.two.user==data.user){
-                        console.log(socket.id,"socket是否相同",roomList[i].roomData.two.socket===socket);
-                        roomList[i].roomData.two.socket=socket;
-                    }
-                    inGame=true;
-                    roomData=roomList[i].roomData;
-                    gameHandle=roomList[i].gameHandle;
-                    break;
-                }
-            }
-            if(inGame) {
-                console.log("ingame>>>> 发送重连数据？？",gameHandle==null,roomHandle.roomData==undefined);
-                // let roomHandle=new rh(roomList,waitList,cardList,socketServer);
-                if(roomHandle.roomData==undefined){
-                    roomHandle.roomData=roomData;
-                    // roomHandle.gameHandle=gameHandle;
-                }
-                gameHandle.sendData(data.user);//发送重连数据给前端
-            }
+            console.log(roomList.length,"roomList收到连接成功客户端身份验证",data);
+            getDbUser(data.user,(result) => {
+                // console.log(result); // 在这里处理查询结果
+                initUserConnect(socket,roomHandle,data);
+            });
+            
+            // let inGame=false;
+            // let roomData=null;
+            // let gameHandle=null;
+            // //获取房间或游戏状态
+            // for(let i=0;i<roomList.length;i++){
+            //     console.log("roomList>>",roomList[i].roomData.one.user,roomList[i].roomData.two.user)
+            //     if(roomList[i].roomData.one.user==data.user||roomList[i].roomData.two.user==data.user){
+            //         console.log("游戏中 进入重连逻辑>>",data.user);
+            //         if(roomList[i].roomData.one.user==data.user){
+            //             console.log(socket.id,"socket是否相同",roomList[i].roomData.one.socket===socket);
+            //             roomList[i].roomData.one.socket=socket;
+            //         }
+            //         if(roomList[i].roomData.two.user==data.user){
+            //             console.log(socket.id,"socket是否相同",roomList[i].roomData.two.socket===socket);
+            //             roomList[i].roomData.two.socket=socket;
+            //         }
+            //         inGame=true;
+            //         roomData=roomList[i].roomData;
+            //         gameHandle=roomList[i].gameHandle;
+            //         break;
+            //     }
+            // }
+            // if(inGame) {
+            //     console.log("ingame>>>> 发送重连数据？？",gameHandle==null,roomHandle.roomData==undefined);
+            //     if(roomHandle.roomData==undefined){
+            //         roomHandle.roomData=roomData;
+            //     }
+            //     gameHandle.sendData(data.user);//发送重连数据给前端
+            // }
         });    
         // socket.emit("CONNECT",{type:"connect"});
         
