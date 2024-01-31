@@ -132,13 +132,13 @@ class RoomHandle {
     //=================方法函数
     //游戏结束处理 删除房间数据等
     gameOver(roomId){
-        console.log("游戏结束  roomId",roomId);
+        console.log("游戏结束  roomId",roomId,"房间数",this.roomList.length);
         for(let i=0;i<this.roomList.length;i++){
             // console.log("gameSocketHandle_user>>",this.roomList[i].roomData.one.user,this.roomList[i].roomData.two.user);
             // console.log("socket id>>",this.roomList[i].roomData.one.socket.id,this.roomList[i].roomData.two.socket.id,socket.id)
             if(this.roomList[i].roomData.roomId==roomId){
                 this.roomList.splice(i,1);
-                 console.log("清除房间信息",this.roomList.length);
+                 console.log("清除完房间信息 房间数",this.roomList.length);
                 break;
             }
         }

@@ -1,5 +1,6 @@
 let Card=require('./card');
 let GameDB=require('./gameDB');
+const createDBConnection=require('./db');
 // 定义游戏玩家操作类
 class GameHandle {
     //构造函数
@@ -102,41 +103,46 @@ class GameHandle {
     }
     //初始化卡组
     initCards(key){
+        let cardList=[];
         // let cardList=[10001,10001,10001,10001,10001,10001,10002,10002,10002,10002,10002,10002,
         //     10003,10003,10003,10003,10003,10003,
         //     10004,10004,10004,10004,10004,10004,10005,10005,10005,10005,10005,10005];
-        let arrRare=[10009,10010,10209,10210,10309,10310,20105,20205,20305,20002,20006]
-        let ran1=Math.floor(Math.random()*4)+1;
-        // ran1=4;
-        let cardList=[];
-        let num=10;
-        let numMagic=5;
-        let repeat=2;
-        let jKey=10001+100*ran1;
-        let mKey=20001+100*ran1;
-        for(let i=0;i<num;i++){
-            for(let j=0;j<repeat;j++){
-                if(arrRare.indexOf(jKey+i)!=-1&&cardList.indexOf(jKey+i)!=-1) continue;
-                cardList.push(jKey+i);
+        if(this.roomData[key].selectedCards.length){
+            cardList=this.roomData[key].selectedCards;
+            console.log(key,"自选卡组","cardList>>",cardList);
+        }else{//随机测试卡组
+            let arrRare=[10009,10010,10209,10210,10309,10310,20105,20205,20305,20002,20006]
+            let ran1=Math.floor(Math.random()*4)+1;
+            // ran1=4;
+            let num=10;
+            let numMagic=5;
+            let repeat=2;
+            let jKey=10001+100*ran1;
+            let mKey=20001+100*ran1;
+            for(let i=0;i<num;i++){
+                for(let j=0;j<repeat;j++){
+                    if(arrRare.indexOf(jKey+i)!=-1&&cardList.indexOf(jKey+i)!=-1) continue;
+                    cardList.push(jKey+i);
+                }
             }
-        }
-        for(let i=0;i<numMagic;i++){
-            for(let j=0;j<repeat;j++){
-                if(arrRare.indexOf(mKey+i)!=-1&&cardList.indexOf(mKey+i)!=-1) continue;
-                cardList.push(mKey+i);
+            for(let i=0;i<numMagic;i++){
+                for(let j=0;j<repeat;j++){
+                    if(arrRare.indexOf(mKey+i)!=-1&&cardList.indexOf(mKey+i)!=-1) continue;
+                    cardList.push(mKey+i);
+                }
             }
+            cardList.push(21002,21009,21010,21011,30001,30002,30003,30104,30105,30106,30107);//天崩地裂 破咒结界
+            for(let i=0;i<9;i++){
+                // cardList.push(30101+i);
+                // cardList.push(20104);
+            }
+            // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
+            // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
+            // cardList=[10209,10209,10209,10209,10209,21009,21009,21009,21009,21009];
+            console.log(key,"测试卡组","cardList>>",cardList)
         }
-        cardList.push(21002,21009,21010,21011,30001,30002,30003,30104,30105,30106,30107);//天崩地裂 破咒结界
-        for(let i=0;i<9;i++){
-            // cardList.push(30101+i);
-            // cardList.push(20104);
-        }
-        // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
-        // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
-        // cardList=[10209,10209,10209,10209,10209,21009,21009,21009,21009,21009];
-        this.shuffle(cardList);
-        console.log("cardList>>",cardList)
-        let newList=[];
+        this.shuffle(cardList);//洗牌
+            let newList=[];    
         for(let j=0;j<cardList.length;j++){
             for(let i=0;i<this.cardData.length;i++){
                 let cardOne=this.cardData[i];
@@ -276,9 +282,38 @@ class GameHandle {
         if(this.roomData.one.ready&&this.roomData.two.ready){
             console.log("双方玩家准备完毕 开始游戏initGame");
             clearTimeout(this.readyTimer);
-            this.initGame();//游戏开始
+            // this.getUserCard(this.roomData.one.user,this.roomData.two.user);
+            this.getUserCard("one",this.roomData.one.user);
+            this.getUserCard("two",this.roomData.two.user);
+            // this.initGame();//游戏开始
         }
     }
+    //获取数据库玩家卡牌信息
+    getUserCard(key,user){
+        if(!this.connection){
+            this.connection=createDBConnection();
+        }
+        this.connection.query(`select info from card where user = ? and cardtype = ?`, [user,1], (err, result) => {
+            console.log(result.length,"result>>>",result[0]);
+            //selectedCards
+            if (err) {
+                console.log("数据库异常");
+                return;
+            }
+            if(result.length>0){
+                let info=JSON.parse(result[0].info);
+                this.roomData[key].selectedCards=info.selectedCards;
+            }else{
+                this.roomData[key].selectedCards=[];
+            }
+            console.log(this.roomData.one.selectedCards,this.roomData.two.selectedCards)
+            console.log("true",this.roomData.one.selectedCards==true,this.roomData.two.selectedCards==true)
+            if(this.roomData.one.selectedCards&&this.roomData.two.selectedCards){
+                this.initGame();//游戏开始   !=undefined
+            }
+        }) 
+    }
+
     gameChangeHand(socket,data){
         console.log("收到更换手牌",this.gameState);
         if(this.gameState!=2) return;
@@ -707,6 +742,11 @@ class GameHandle {
                 for(let j=0;j<arrBuffId.length;j++){
                     //取到游戏中的card数据添加buff arrCardOne是临时的不能用
                     let tableCard=this.getCardByUID(arrCardOne.uid,arrCardOne.owner,"tableCards");
+                    //铁腕术  tableCard不存在 可能有Bug
+                    if(!tableCard){
+                        console.log("tableCard不存在 有BUG？？？？？？")
+                        continue;
+                    }
                     let buffUid=tableCard.addBuff(arrBuffId[j],arrBuffValue[j]);
                     if(buffUid)this.socketUpdateBuff(arrCardOne.owner,arrCardOne.uid,buffUid,arrBuffId[j],1,arrBuffValue[j]);
                 }

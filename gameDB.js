@@ -18,5 +18,6 @@ class GameDB {
 }
 //静态变量
 GameDB.USER_DB =new Map();
+GameDB.CARDLIST;
 
 module.exports = GameDB;

@@ -8,6 +8,7 @@ let GameDB=require('./gameDB');
 const createDBConnection=require('./db');
 // let sh=require('./socketHandle');
 let rh=require('./roomHandle');
+let Arena=require('./arena');//竞技场
 
 let app = express();
 
@@ -30,6 +31,9 @@ let roomList=[];
 let waitList=[];
 //全卡数据
 let cardList=[];
+
+//竞技数据
+arena=new Arena();
 
 initSocket=()=>{
     console.log("initSocket");
@@ -95,31 +99,6 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
         return;
     }
     // this.test1();
-    // let str="-15"
-    // let str2="5"
-    // console.log(parseInt(str)<0,str2<0)
-    // let arr1=[]
-    // let arr2=[{id:1},{id:2},{id:3}]
-    // for(let i=arr2.length-1;i>-1;i--){
-    //     if(arr2[i].id==2) arr2.splice(i,1);
-    //     console.log(i,arr2)
-    // }
-    // arr1=arr1.concat(arr2);
-    // arr1[0].id=3;
-    // console.log(arr1,"arr",arr2);
-    // let arr1=[1,2];
-    // let arr2=arr1.concat();
-    // arr1=[];
-    // console.log(arr1,arr2);
-    // let arr=[1,2,3,4];
-    // let arr1=[2,3,4];
-    // for(let i=0;i<arr.length;i++){
-    //     if(arr1.indexOf(arr[i])>-1) {
-    //         arr.splice(i,1);
-    //         i--
-    //     }    
-    // }
-    // console.log(arr,"<<arr")
     // let obj={o1:{o2:1,o3:2}};
     // let arr=[obj];
     // let o4=obj.o1;
@@ -127,6 +106,7 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
     // console.log(arr,"arr",o4)
     // console.log(cardData.length);
     cardList=JSON.parse(cardData);
+    GameDB.CARDLIST=cardList;
     server.listen(3005, function () {
         console.log("listen 3005");
     });
@@ -135,7 +115,7 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
         console.log(socket.id,"connect one on ：" + new Date().toLocaleString());
         // console.log(socketServer===socket)
         // let socketHandle=new sh(socket);
-        roomHandle=new rh(roomList,waitList,cardList,socketServer);
+        let roomHandle=new rh(roomList,waitList,cardList,socketServer);
         socket.on('CONNECT',  (data) => {
             console.log(roomList.length,"roomList收到连接成功客户端身份验证",data);
             getDbUser(data.user,(result) => {
@@ -189,7 +169,11 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
             roomHandle.gameSocketHandle(socket,data);
             
         });
-    
+        //竞技信息
+        socket.on('ARENA',  (data) => {
+            console.log(socket.id,"竞技arguments>>",data);
+            arena.arenaHandle(socket,data);
+        });
         
     	
         socket.on('disconnect',  (data) => {
