@@ -9,6 +9,7 @@ const createDBConnection=require('./db');
 // let sh=require('./socketHandle');
 let rh=require('./roomHandle');
 let Arena=require('./arena');//竞技场
+let CardEdit=require('./cardEdit');//卡组编辑
 
 let app = express();
 
@@ -31,9 +32,12 @@ let roomList=[];
 let waitList=[];
 //全卡数据
 let cardList=[];
-
+//在线socket列表
+let onLineList=new Map();
 //竞技数据
-arena=new Arena();
+let arena=new Arena();
+//卡组编辑
+let cardEdit=new CardEdit();
 
 initSocket=()=>{
     console.log("initSocket");
@@ -118,10 +122,21 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
         let roomHandle=new rh(roomList,waitList,cardList,socketServer);
         socket.on('CONNECT',  (data) => {
             console.log(roomList.length,"roomList收到连接成功客户端身份验证",data);
+            //判断重复登录
+            let userSocket=onLineList.get(data.user);
+            if(userSocket){
+                console.log("处理重复登录",userSocket.id);
+                // userSocket.emit("GAME",{type:"game_return"});
+                userSocket.emit("LOGIN",{type:"login_repeat"});
+            }
+            onLineList.set(data.user,socket);
+            console.log("在线数",onLineList.size,socket.id);
+            //处理判断重连进游戏
             getDbUser(data.user,(result) => {
                 // console.log(result); // 在这里处理查询结果
                 initUserConnect(socket,roomHandle,data);
             });
+            
             
             // let inGame=false;
             // let roomData=null;
@@ -154,7 +169,7 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
             // }
         });    
         // socket.emit("CONNECT",{type:"connect"});
-        
+        //房间信息
         socket.on('ROOM',  (data) => {
         // socket.on('ROOM',  function () {
             console.log(socket.id,"arguments>>",data);
@@ -162,6 +177,7 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
             // args.push(socket);
             roomHandle.roomHandle(socket,data);
         });
+        //游戏信息
         socket.on('GAME',  (data) => {
             // socket.on('ROOM',  function () 
             // let args = Array.prototype.slice.call(arguments);
@@ -174,11 +190,21 @@ fs.readFile('sg.json', 'utf8', (err, cardData) => {
             console.log(socket.id,"竞技arguments>>",data);
             arena.arenaHandle(socket,data);
         });
-        
+        //卡组编辑
+        socket.on('CARD',  (data) => {
+            console.log(socket.id,"卡组编辑arguments>>",data);
+            cardEdit.cardEditHandle(socket,data);
+        });
     	
         socket.on('disconnect',  (data) => {
-            	console.log("disconnect one on ：" + new Date().toLocaleString(),"断开连接",data);
-	           roomHandle.disConnect(socket);
+            console.log("disconnect one on ：" + new Date().toLocaleString(),"断开连接",data);
+	        roomHandle.disConnect(socket);
+            onLineList.forEach((value, key) => {
+                if(socket.id===value.id){
+                    onLineList.delete(key);
+                }
+            });
+            console.log("在线数",onLineList.size);
         });
         //socket.on('disconnect', function () {
         //    console.log("disconnect one on ：" + new Date().toLocaleString());

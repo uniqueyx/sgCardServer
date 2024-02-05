@@ -107,14 +107,14 @@ class RoomHandle {
    disConnect(socket){
 	console.log("玩家断开连接 处理自动取消匹配",socket.id)
 	for(var i=0;i<this.waitList.length;i++){
-	let waitOne=this.waitList[i];
-	if(waitOne.socket==socket){
-		this.waitList.splice(i,1);
-		console.log(this.waitList.length,"取消匹配");
-		socket.emit("ROOM",{type:"match_cancel"});
-		break;
-	}
+        let waitOne=this.waitList[i];
+        if(waitOne.socket==socket){
+            this.waitList.splice(i,1);
+            console.log(this.waitList.length,"取消匹配");
+            socket.emit("ROOM",{type:"match_cancel"});
+            break;
         }
+    }
    }
     createRoom(socket,data){
 

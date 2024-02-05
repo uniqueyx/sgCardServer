@@ -36,7 +36,7 @@ class GameHandle {
         this.roomData.firstTurn=first<1?"one":"two";
         console.log("firstTurn>>>",this.roomData.firstTurn);
 
-        //发送开始游戏  GameDB.USER_DB.get
+        //发送开始游戏  GameDB.USER_DB.get   nick undefined报错 要查一下
         this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:GameDB.USER_DB.get(this.roomData.two.user).nick,first:this.roomData.firstTurn=="one",gameState:this.gameState});
         this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:GameDB.USER_DB.get(this.roomData.one.user).nick,first:this.roomData.firstTurn=="two",gameState:this.gameState});
         
@@ -131,10 +131,10 @@ class GameHandle {
                     cardList.push(mKey+i);
                 }
             }
-            cardList.push(21002,21009,21010,21011,30001,30002,30003,30104,30105,30106,30107);//天崩地裂 破咒结界
+            cardList.push(21002,21009,21010,21011,30001,30002,30003,30104,30105,30106,30107,30109);//天崩地裂 破咒结界
             for(let i=0;i<9;i++){
                 // cardList.push(30101+i);
-                // cardList.push(20104);
+                // cardList.push(30109);
             }
             // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
             // cardList.push(10013,10013,10013,10013,10013,10013,10013,10013);
