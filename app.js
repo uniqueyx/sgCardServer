@@ -6,6 +6,7 @@ let socket = require("socket.io");
 const fs = require('fs');
 let GameDB=require('./gameDB');
 const createDBConnection=require('./db');
+const SQL=require('./sql');
 // let sh=require('./socketHandle');
 let rh=require('./roomHandle');
 let Arena=require('./arena');//竞技场
@@ -21,7 +22,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 
 //数据库连接
-const connection = createDBConnection();
+// const connection = createDBConnection();
 
 let server = http.createServer(app);
 //let socketServer = socket(server);
@@ -43,19 +44,32 @@ initSocket=()=>{
     console.log("initSocket");
 }
 getDbUser=(uid,callback)=>{
+    let connection = new SQL();
     console.log("getDbUser",uid);
-    connection.query(`select * from user where uid = ?`, [uid], (err, result) => {
-        if (err) {
-          console.log("数据库异常")
-          return;
-        }
+    connection.query(`select * from user where uid = ?`, [uid])
+      .then((result) => {
         if(result.length>0){
             console.log("result[0]>>",result[0]);
             GameDB.USER_DB.set(result[0].uid,result[0]);
             callback(result);
-        }else console.log("没有玩家数据？？？？？");;
-        
-    });    
+        }else console.log("没有玩家数据？？？？？");
+      })
+      .catch((err) => {
+          // res.json({message:"数据库异常"});
+        console.log('Error executing query:',err.errno);
+      });
+
+    // connection.query(`select * from user where uid = ?`, [uid], (err, result) => {
+    //     if (err) {
+    //       console.log("数据库异常")
+    //       return;
+    //     }
+    //     if(result.length>0){
+    //         console.log("result[0]>>",result[0]);
+    //         GameDB.USER_DB.set(result[0].uid,result[0]);
+    //         callback(result);
+    //     }else console.log("没有玩家数据？？？？？");;
+    // });    
 }
 
 initUserConnect=(socket,roomHandle,data)=>{

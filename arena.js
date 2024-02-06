@@ -1,5 +1,6 @@
 let GameDB=require('./gameDB');
 const createDBConnection=require('./db');
+const SQL=require('./sql');
 // 游戏数据库
 class Arena {
     //构造函数
@@ -132,30 +133,61 @@ class Arena {
                 force:arenaData.force,selectedCards:arenaData.selectedCards});
         }else{
             console.log("没有竞技数据需要查询数据库");
-            if(!this.connection){
-                this.connection=createDBConnection();
-            }
-            this.connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,1], (err, result) => {
-                console.log(result.length,"result>>>",result);
-                if (err) {
-                    console.log("数据库异常");
-                    return;
-                }
-                let obj={};
-                if(result.length==0){
-                    obj.force=0;
-                    obj.selectedCards=[];
-                    obj.currentCards=[];
-                    obj.currentCards=this.getRandomForce();
-                    arenaData=obj;
-                    this.arenaMap.set(data.user,obj);
-                }else{
-                    arenaData=JSON.parse(result[0].info);
-                    console.log("有数据解析卡组",arenaData);
-                }
-                socket.emit("ARENA",{type:"arena_info",currentCards:arenaData.currentCards,
-                    force:arenaData.force,selectedCards:arenaData.selectedCards});
-            });          
+            let connection = new SQL();
+            connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,1])
+              .then((result) => {
+                if(result.length>0){
+                    console.log("result[0]>>",result[0]);
+                    let obj={};
+                    if(result.length==0){
+                        obj.force=0;
+                        obj.selectedCards=[];
+                        obj.currentCards=[];
+                        obj.currentCards=this.getRandomForce();
+                        arenaData=obj;
+                        this.arenaMap.set(data.user,obj);
+                    }else{
+                        arenaData=JSON.parse(result[0].info);
+                        console.log("有数据解析竞技卡组",arenaData);
+                    }
+                    socket.emit("ARENA",{type:"arena_info",currentCards:arenaData.currentCards,
+                        force:arenaData.force,selectedCards:arenaData.selectedCards});
+                }else console.log("没有玩家数据？？？？？");
+              })
+              .catch((err) => {
+                  // res.json({message:"数据库异常"});
+                console.log('Error executing query:',err.errno);
+              });
+
+
+            // if(!this.connection){
+            //     this.connection=createDBConnection();
+            // }
+            // this.connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,1], (err, result) => {
+            //     console.log("result>>>",result);
+            //     if (err) {
+            //         console.log("数据库异常");
+            //         return;
+            //     }
+            //     if(!result){
+            //         console.log("数据库连接出错");
+            //         return;
+            //     }
+            //     let obj={};
+            //     if(result.length==0){
+            //         obj.force=0;
+            //         obj.selectedCards=[];
+            //         obj.currentCards=[];
+            //         obj.currentCards=this.getRandomForce();
+            //         arenaData=obj;
+            //         this.arenaMap.set(data.user,obj);
+            //     }else{
+            //         arenaData=JSON.parse(result[0].info);
+            //         console.log("有数据解析竞技卡组",arenaData);
+            //     }
+            //     socket.emit("ARENA",{type:"arena_info",currentCards:arenaData.currentCards,
+            //         force:arenaData.force,selectedCards:arenaData.selectedCards});
+            // });          
             
         }
         
@@ -183,39 +215,72 @@ class Arena {
             arenaData.cardPool=[];
             socket.emit("ARENA",{type:"arena_selectInfo",force:arenaData.force,selectCard:selectCard,selectType:data.selectType,currentCards:arenaData.currentCards});
             console.log(JSON.stringify(arenaData).length,"保存数据",JSON.stringify(arenaData))
-            if(!this.connection){
-                this.connection=createDBConnection();
-            }
-            this.connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,1], (err, result) => {
-                console.log(result.length,"result>>>",result);
-                if (err) {
-                    console.log("数据库异常");
-                    return;
-                }
+
+            let connection = new SQL();
+            connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,1])
+              .then((result) => {
                 if(result.length==0){
                     console.log("没有数据 插入数据库");
-                    this.connection.query(`insert into card (user, cardtype, name, info) VALUES (?, ?, ?, ?)`, [data.user,1,data.user+"竞技",JSON.stringify(arenaData)], (err, result) => {
-                        console.log(result.length,"insert result>>>",result);
-                        if (err) {
-                            console.log("数据库异常");
-                            return;
-                        }
+                    connection.query(`insert into card (user, cardtype, name, info, used) VALUES (?, ?, ?, ?, ?)`, [data.user,1,data.user+"竞技",JSON.stringify(arenaData),1])
+                      .then((result) => {
                         console.log("竞技卡组创建保存成功");
-                        // connection.release();
-                    });    
+                      })
+                      .catch((err) => {
+                          // res.json({message:"数据库异常"});
+                        console.log('Error executing query:',err.errno);
+                      });
+   
                 }else{
-                    this.connection.query(`update card set info=? where user= ? and cardtype = ?`, [JSON.stringify(arenaData),data.user,1], (err, result) => {
-                        console.log(result.length,"update result>>>",result);
-                        if (err) {
-                            console.log("数据库异常");
-                            return;
-                        }
+                    connection.query(`update card set info=? where user= ? and cardtype = ?`, [JSON.stringify(arenaData),data.user,1])
+                      .then((result) => {
                         console.log("竞技卡组更新成功");
-                        // connection.release();
-                    });  
+                      })
+                      .catch((err) => {
+                          // res.json({message:"数据库异常"});
+                        console.log('Error executing query:',err.errno);
+                      });
+                    
                 }
-                // connection.release();
-            });    
+              })
+              .catch((err) => {
+                  // res.json({message:"数据库异常"});
+                console.log('Error executing query:',err.errno);
+              });
+
+
+            // if(!this.connection){
+            //     this.connection=createDBConnection();
+            // }
+            // this.connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,1], (err, result) => {
+            //     console.log(result.length,"result>>>",result);
+            //     if (err) {
+            //         console.log("数据库异常");
+            //         return;
+            //     }
+            //     if(result.length==0){
+            //         console.log("没有数据 插入数据库");
+            //         this.connection.query(`insert into card (user, cardtype, name, info, used) VALUES (?, ?, ?, ?, ?)`, [data.user,1,data.user+"竞技",JSON.stringify(arenaData),1], (err, result) => {
+            //             console.log(result.length,"insert result>>>",result);
+            //             if (err) {
+            //                 console.log("数据库异常");
+            //                 return;
+            //             }
+            //             console.log("竞技卡组创建保存成功");
+            //             // connection.release();
+            //         });    
+            //     }else{
+            //         this.connection.query(`update card set info=? where user= ? and cardtype = ?`, [JSON.stringify(arenaData),data.user,1], (err, result) => {
+            //             console.log(result.length,"update result>>>",result);
+            //             if (err) {
+            //                 console.log("数据库异常");
+            //                 return;
+            //             }
+            //             console.log("竞技卡组更新成功");
+            //             // connection.release();
+            //         });  
+            //     }
+            //     // connection.release();
+            // });    
             
         }else{
             //生成选择的卡

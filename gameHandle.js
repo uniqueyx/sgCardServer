@@ -283,12 +283,12 @@ class GameHandle {
             console.log("双方玩家准备完毕 开始游戏initGame");
             clearTimeout(this.readyTimer);
             // this.getUserCard(this.roomData.one.user,this.roomData.two.user);
-            this.getUserCard("one",this.roomData.one.user);
-            this.getUserCard("two",this.roomData.two.user);
-            // this.initGame();//游戏开始
+            this.initGame();//游戏开始
+            // this.getUserCard("one",this.roomData.one.user);
+            // this.getUserCard("two",this.roomData.two.user);
         }
     }
-    //获取数据库玩家卡牌信息
+    //获取数据库玩家卡牌信息  暂时已弃用
     getUserCard(key,user){
         if(!this.connection){
             this.connection=createDBConnection();
@@ -729,6 +729,7 @@ class GameHandle {
             let arrCardOne=arrCard[i];
             let arrBuffId=String(effect.buffId).split("_");
             let arrBuffValue=String(effect.buffValue).split("_");
+            let arrBuffValueRan=String(effect.buffValueRan).split("_");
             if(arrBuffId.length!=arrBuffValue.length){
                 console.error("是否表配错了buffid和buffValue长度不一致 获得随机buff");
                 let randomBuff = parseInt(arrBuffId[Math.floor(Math.random() * arrBuffId.length)]);
@@ -747,8 +748,10 @@ class GameHandle {
                         console.log("tableCard不存在 有BUG？？？？？？")
                         continue;
                     }
-                    let buffUid=tableCard.addBuff(arrBuffId[j],arrBuffValue[j]);
-                    if(buffUid)this.socketUpdateBuff(arrCardOne.owner,arrCardOne.uid,buffUid,arrBuffId[j],1,arrBuffValue[j]);
+                    let newBuffValue=arrBuffValue[j];
+                    if(parseInt(arrBuffId[j])==Card.BUFF_ATTACK&&parseInt(arrBuffValueRan[j])==1) newBuffValue=arrBuffValue[j]>0?Math.ceil(Math.random() * parseInt(arrBuffValue[j])):Math.floor(Math.random() * parseInt(arrBuffValue[j]));//随机攻击力方法
+                    let buffUid=tableCard.addBuff(arrBuffId[j],newBuffValue);
+                    if(buffUid)this.socketUpdateBuff(arrCardOne.owner,arrCardOne.uid,buffUid,arrBuffId[j],1,newBuffValue);
                 }
             }
         }
@@ -1164,6 +1167,7 @@ class GameHandle {
         // console.log(key,"<<<judgeCondition",condition,value)
         if(condition==undefined) return true;//属性不存在跳过判断直接返回true
         switch(key){
+            case "name":
             case "rare":
             case "cardType":
                 if(String(condition).indexOf(String(value))!=-1) return true;
@@ -1173,7 +1177,6 @@ class GameHandle {
                 break;    
             case "force": 
             // case "rare":
-            case "name":
                 if(condition==value) return true;
                 break;
             case "atk":

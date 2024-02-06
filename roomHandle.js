@@ -1,5 +1,7 @@
 
 let GameHandle=require('./gameHandle');
+const createDBConnection=require('./db');
+const SQL=require('./sql');
 // 定义room操作类
 class RoomHandle {
     //构造函数
@@ -20,7 +22,8 @@ class RoomHandle {
         // if(args.)
         switch (data.type) {
             case "match_room":
-                this.matchRoom(socket,data);
+                this.queryMatch(socket,data);
+                // this.matchRoom(socket,data);
                 break;
             case "match_cancel":
                 this.matchCancel(socket,data);
@@ -57,35 +60,86 @@ class RoomHandle {
         }
         gameHandle.gameHandle(socket,data);
     }    
-
-    matchRoom(socket,data){
+    //获取匹配等待的玩家
+    getWaitPlayer(gameType){
+        for(let i=0;i<this.waitList.length;i++){
+            let waitOne=this.waitList[i];
+            if(waitOne.gameType==gameType) return waitOne;
+        }
+        return null;
+    }
+    //移除匹配玩家
+    removeWaitPlayer(user){
+        for(let i=0;i<this.waitList.length;i++){
+            let waitOne=this.waitList[i];
+            if(waitOne.user==user) {
+                this.waitList.splice(i,1);
+                break;
+            }    
+        }
+    }
+    queryMatch(socket,data){
+        let connection = new SQL();
+        connection.query(`select info from card where user = ? and cardtype = ? and used = ?`, [data.user,data.gameType,1])
+          .then((result) => {
+            if(result.length>0){
+                let info=JSON.parse(result[0].info);
+                console.log("有对战卡组 处理后续");
+                this.matchRoom(socket,data,info.selectedCards);
+            }else{
+                console.log("没有对战卡组",data.gameType);
+                socket.emit("ROOM",{type:"match_error",gameType:data.gameType});
+            }
+          })
+          .catch((err) => {
+              // res.json({message:"数据库异常"});
+            console.log('Error executing query:',err.errno);
+          });
+        
+        // if(!this.connection) this.connection=createDBConnection();
+        // this.connection.query(`select info from card where user = ? and cardtype = ? and used = ?`, [data.user,data.gameType,1], (err, result) => {
+        //     console.log(result.length,"queryDB  result>>>",result[0]);
+        //     //selectedCards
+        //     if (err) {
+        //         console.log("数据库异常");
+        //         return;
+        //     }
+        //     if(result.length>0){
+        //         let info=JSON.parse(result[0].info);
+        //         // this.roomData[key].selectedCards=info.selectedCards;
+        //         console.log("有对战卡组 处理后续");
+        //         //处理 卡组设置    卡组详细列表滚动无效
+        //         this.matchRoom(socket,data,info.selectedCards);
+        //     }else{
+        //         // this.roomData[key].selectedCards=[];
+        //         console.log("没有对战卡组",data.gameType);
+        //         socket.emit("ROOM",{type:"match_error",gameType:data.gameType});
+        //     }
+        // })
+        // console.log("await  res",res)
+    }
+    matchRoom(socket,data,selectedCards){
         console.log(this.waitList.length,"收到匹配房间",socket.id,data);
-        if(this.waitList.length==0){
+        // let res=this.queryDB(data.user,data.gameType);
+        let obj={user:data.user,selectedCards:selectedCards,gameType:data.gameType,socket:socket,ready:false}
+        let gameOne=this.getWaitPlayer(data.gameType);
+        if(gameOne==null){
+        // if(this.waitList.length==0){
             console.log("向客户端发送匹配中",socket.id);
-            this.waitList.push({user:data.user,socket:socket,ready:false});
+            this.waitList.push(obj);
 	        socket.emit("ROOM",{type:"match_wait"});//匹配中
         }else{//进入匹配逻辑
-            let gameOne=this.waitList[0];
+            console.log("找到对手进入匹配逻辑");
             if(gameOne.user==data.user){
                 console.log("已经在匹配中了",data.user);
                 return;
             }
-            this.roomData={roomId:gameOne.user,one:gameOne,two:{user:data.user,socket:socket,ready:false},turn:0};
+            this.roomData={roomId:gameOne.user,one:gameOne,two:obj,turn:0};
             let gameHandle=new GameHandle(this.cardData,this.roomData,(rId)=>{this.gameOver(rId)});
             this.roomList.push( {roomData:this.roomData,gameHandle:gameHandle});
-            // this.roomId=gameOne.user;
-            //匹配成功 开始游戏消息
-            // gameOne.socket.join(this.roomId);
-            // data.socket.join(this.roomId);
-            // this.socketServer.to(this.roomId).emit('room',{}); 
-            this.waitList.shift();
+            this.removeWaitPlayer(gameOne.user);
             gameOne.socket.emit("ROOM",{type:"match_success"});
             socket.emit("ROOM",{type:"match_success"});
-            //此处实例化gameHandle类
-            // console.log("this.roomData>>",this.roomData)
-            // =
-            // let gameHandle=new GameHandle(this.cardData,this.roomData);
-            // this.roomData.gameHandle=new GameHandle(this.cardData,this.roomData);
             console.log("匹配成功 等待ready 游戏初始化",this.roomList.length);
             gameHandle.readyGame();
             // gameHandle.initGame();

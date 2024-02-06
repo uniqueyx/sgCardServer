@@ -14,13 +14,22 @@ function createDBConnection() {
       console.error('Error connecting to MySQL server:', err);
       return;
     }
-    console.log('Connected to MySQL server');
+    console.log('Connected to MySQL server'+new Date().toLocaleString());
   });
   
   connection.on('error', (err) => {
     if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-      console.error('MySQL server connection lost:', err);
-      // 在这里可以添加重试逻辑或其他适当的处理方式
+        console.error('MySQL server connection lost:'+new Date().toLocaleString(), err);
+        // 在这里可以添加重试逻辑或其他适当的处理方式
+        setTimeout(() => {
+                connection.connect((err) => {
+                    if (err) {
+                      console.error('重连Error connecting to MySQL server:', err);
+                      return;
+                    }
+                    console.log('Connected to MySQL server重连成功'+new Date().toLocaleString());
+                  });
+        }, 3000); 
     } else {
       console.error('MySQL error:', err);
     }

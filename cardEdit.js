@@ -1,5 +1,6 @@
 let GameDB=require('./gameDB');
 const createDBConnection=require('./db');
+const SQL=require('./sql');
 // 游戏数据库
 class CardEdit {
     //构造函数
@@ -73,130 +74,171 @@ class CardEdit {
             value=info;
             obj.cardList=data.card;
         }
-        if(!this.connection)    this.connection=createDBConnection();
-        this.connection.query(`update card set `+key+`=? where user= ? and uid = ? and cardtype = ?`, [value,data.user,data.id,2], (err, result) => {
-            console.log(result.changedRows,"update result>>>",result);
-            if (err) {
-                console.log("数据库异常");
-                return;
-            }
+
+        let connection = new SQL();
+        connection.query(`update card set `+key+`=? where user= ? and uid = ? and cardtype = ?`, [value,data.user,data.id,2])
+          .then((result) => {
             console.log("卡组修改成功");
             socket.emit("CARD",obj);
-        });
-    }
-    cardEditUse(socket,data){
-        console.log("收到客户端 卡组启用请求");
-        if(!this.connection)    this.connection=createDBConnection();
-        this.connection.query(`update card set used=? where user= ? and used = ? and cardtype = ?`, [0,data.user,1,2], (err, result) => {
-            console.log(result.changedRows,"update result>>>",result);
-            if (err) {
-                console.log("数据库异常");
-                return;
-            }
-            console.log("启用卡组设置为0");
-            this.connection.query(`update card set used=? where user= ? and uid = ? and cardtype = ?`, [1,data.user,data.id,2], (err, result) => {
-                console.log(result.changedRows,"update result>>>",result);
-                if (err) {
-                    console.log("数据库异常");
-                    return;
-                }
-                console.log("新卡组启用成功");
-                socket.emit("CARD",{type:"cardEdit_use",id:data.id});
-            });
-            // connection.release();
-        });  
-    }
-    cardEditDelete(socket,data){
-        console.log("收到客户端 删除卡组");
-        if(!this.connection){
-            this.connection=createDBConnection();
-        }
-        this.connection.query('DELETE FROM card WHERE user = ? AND uid = ?', [data.user, data.id], (err, result) => {  
-            // 处理结果或错误  
-            if (err) {  
-                console.error("数据库异常", err);  
-            } else {  
-                console.log('成功删除指定数据。受影响的行数:', result.affectedRows);  
-            }  
-            socket.emit("CARD",{type:"cardEdit_delete",id:data.id});
-        });
-    }
-    cardEditCreate(socket,data){
-        console.log("收到客户端 新建卡组请求");
-        if(!this.connection){
-            this.connection=createDBConnection();
-        }// and cardtype = ?
-        this.connection.query(`select * from card where user = ? and cardtype = ? and used = ?`, [data.user,2,1], (err, result) => {
-        // this.connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,2], (err, result) => {
-            console.log(result.length,"select result>>>",result);//result.length,
-            if (err) {
-                console.log("数据库异常");
-                return;
-            }
-            if(result.length>0){
-                this.connection.query(`update card set used=? where user= ? and used = ? and cardtype = ?`, [0,data.user,1,2], (err, result) => {
-                    console.log(result.length,"update result>>>",result);//result.length,
-                    if (err) {
-                        console.log("数据库异常");
-                        return;
-                    }
-                    console.log(result.length,"已启用卡组设置为0");
-                    // this.connection.query(`insert into card (user, cardtype, name, info,used) VALUES (?, ?, ?, ?, ?)`, [data.user,2,data.cardName,JSON.stringify({force:data.force,selectedCards:data.card}),1], (err, result) => {
-                    //     console.log(result.length,"insert result>>>",result);
-                    //     if (err) {
-                    //         console.log("数据库异常");
-                    //         return;
-                    //     }
-                    //     console.log("对战卡组创建保存成功",result[0].id);
-                    //     socket.emit("CARD",{type:"cardEdit_create",id:result[0].uid,cardName:data.cardName,force:data.force,used:1});
-                    // });
-                });
-            }
-            
-            let info=JSON.stringify({force:data.force,selectedCards:data.card});
-            console.log("inset的数据info",info)
-            this.connection.query(`insert into card (user, cardtype, name, info, used) VALUES (?, ?, ?, ?, ?)`, [data.user,2,data.cardName,info,1], (err, result) => {
-                console.log(result.length,"insert result>>>",result);
-                if (err) {
-                    console.log("数据库异常");
-                    return;
-                }
-                console.log("对战卡组创建保存成功",result.insertId);
-                socket.emit("CARD",{type:"cardEdit_create",id:result.insertId,cardName:data.cardName,force:data.force,used:1});
-            });
-        
-        });    
+          })
+          .catch((err) => {
+              // res.json({message:"数据库异常"});
+            console.log('Error executing query:',err.errno);
+          });
 
-        // this.connection.query(`update card set used=? where user= ? and used = ? and cardtype = ?`, [0,data.user,1,2], (err, result) => {
-        //     console.log("update result>>>",result);//result.length,
+        // if(!this.connection)    this.connection=createDBConnection();
+        // this.connection.query(`update card set `+key+`=? where user= ? and uid = ? and cardtype = ?`, [value,data.user,data.id,2], (err, result) => {
+        //     console.log(result.changedRows,"update result>>>",result);
         //     if (err) {
         //         console.log("数据库异常");
         //         return;
         //     }
-        //     console.log(result.length,"已启用卡组设置为0");
-        //     this.connection.query(`insert into card (user, cardtype, name, info,used) VALUES (?, ?, ?, ?, ?)`, [data.user,2,data.cardName,JSON.stringify({force:data.force,selectedCards:data.card}),1], (err, result) => {
+        //     console.log("卡组修改成功");
+        //     socket.emit("CARD",obj);
+        // });
+    }
+    cardEditUse(socket,data){
+        console.log("收到客户端 卡组启用请求");
+        let connection = new SQL();
+        connection.query(`update card set used=? where user= ? and used = ? and cardtype = ?`, [0,data.user,1,2])
+          .then((result) => {
+                console.log("启用卡组设置为0");
+                connection.query(`update card set used=? where user= ? and uid = ? and cardtype = ?`, [1,data.user,data.id,2])
+                  .then((result) => {
+                        console.log("新卡组启用成功");
+                        socket.emit("CARD",{type:"cardEdit_use",id:data.id});
+                  })
+                  .catch((err) => {
+                      // res.json({message:"数据库异常"});
+                    console.log('Error executing query:',err.errno);
+                  });
+          })
+          .catch((err) => {
+              // res.json({message:"数据库异常"});
+            console.log('Error executing query:',err.errno);
+          });
+
+        // if(!this.connection)    this.connection=createDBConnection();
+        // this.connection.query(`update card set used=? where user= ? and used = ? and cardtype = ?`, [0,data.user,1,2], (err, result) => {
+        //     console.log(result.changedRows,"update result>>>",result);
+        //     if (err) {
+        //         console.log("数据库异常");
+        //         return;
+        //     }
+        //     console.log("启用卡组设置为0");
+        //     this.connection.query(`update card set used=? where user= ? and uid = ? and cardtype = ?`, [1,data.user,data.id,2], (err, result) => {
+        //         console.log(result.changedRows,"update result>>>",result);
+        //         if (err) {
+        //             console.log("数据库异常");
+        //             return;
+        //         }
+        //         console.log("新卡组启用成功");
+        //         socket.emit("CARD",{type:"cardEdit_use",id:data.id});
+        //     });
+        // });  
+    }
+    cardEditDelete(socket,data){
+        console.log("收到客户端 删除卡组");
+        let connection = new SQL();
+        connection.query('DELETE FROM card WHERE user = ? AND uid = ?', [data.user, data.id])
+          .then((result) => {
+            console.log('成功删除指定数据。受影响的行数:', result.affectedRows); 
+            socket.emit("CARD",{type:"cardEdit_delete",id:data.id});
+          })
+          .catch((err) => {
+              // res.json({message:"数据库异常"});
+            console.log('Error executing query:',err.errno);
+          });
+
+        // if(!this.connection){
+        //     this.connection=createDBConnection();
+        // }
+        // this.connection.query('DELETE FROM card WHERE user = ? AND uid = ?', [data.user, data.id], (err, result) => {  
+        //     // 处理结果或错误  
+        //     if (err) {  
+        //         console.error("数据库异常", err);  
+        //     } else {  
+        //         console.log('成功删除指定数据。受影响的行数:', result.affectedRows);  
+        //     }  
+        //     socket.emit("CARD",{type:"cardEdit_delete",id:data.id});
+        // });
+    }
+    cardEditCreate(socket,data){
+        console.log("收到客户端 新建卡组请求");
+        let connection = new SQL();
+        connection.query(`select * from card where user = ? and cardtype = ? and used = ?`, [data.user,2,1])
+          .then((result) => {
+            if(result.length>0){
+                connection.query(`update card set used=? where user= ? and used = ? and cardtype = ?`, [0,data.user,1,2])
+                  .then((result) => {
+                    console.log(result.length,"已启用卡组设置为0");
+                  })
+                  .catch((err) => {
+                      // res.json({message:"数据库异常"});
+                    console.log('Error executing query:',err.errno);
+                  });
+
+            }
+            
+            let info=JSON.stringify({force:data.force,selectedCards:data.card});
+            console.log("inset的数据info",info)
+            connection.query(`insert into card (user, cardtype, name, info, used) VALUES (?, ?, ?, ?, ?)`, [data.user,2,data.cardName,info,1])
+              .then((result) => {
+                console.log("对战卡组创建保存成功",result.insertId);
+                socket.emit("CARD",{type:"cardEdit_create",id:result.insertId,cardName:data.cardName,force:data.force,used:1});
+              })
+              .catch((err) => {
+                  // res.json({message:"数据库异常"});
+                console.log('Error executing query:',err.errno);
+              });
+                  
+          })
+          .catch((err) => {
+              // res.json({message:"数据库异常"});
+            console.log('Error executing query:',err.errno);
+          });
+
+        // if(!this.connection){
+        //     this.connection=createDBConnection();
+        // }// and cardtype = ?
+        // this.connection.query(`select * from card where user = ? and cardtype = ? and used = ?`, [data.user,2,1], (err, result) => {
+        // // this.connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,2], (err, result) => {
+        //     console.log(result.length,"select result>>>",result);//result.length,
+        //     if (err) {
+        //         console.log("数据库异常");
+        //         return;
+        //     }
+        //     if(result.length>0){
+        //         this.connection.query(`update card set used=? where user= ? and used = ? and cardtype = ?`, [0,data.user,1,2], (err, result) => {
+        //             console.log(result.length,"update result>>>",result);//result.length,
+        //             if (err) {
+        //                 console.log("数据库异常");
+        //                 return;
+        //             }
+        //             console.log(result.length,"已启用卡组设置为0");
+        //         });
+        //     }
+            
+        //     let info=JSON.stringify({force:data.force,selectedCards:data.card});
+        //     console.log("inset的数据info",info)
+        //     this.connection.query(`insert into card (user, cardtype, name, info, used) VALUES (?, ?, ?, ?, ?)`, [data.user,2,data.cardName,info,1], (err, result) => {
         //         console.log(result.length,"insert result>>>",result);
         //         if (err) {
         //             console.log("数据库异常");
         //             return;
         //         }
-        //         console.log("对战卡组创建保存成功",result[0].id);
-        //         socket.emit("CARD",{type:"cardEdit_create",id:result[0].uid,cardName:data.cardName,force:data.force,used:1});
+        //         console.log("对战卡组创建保存成功",result.insertId);
+        //         socket.emit("CARD",{type:"cardEdit_create",id:result.insertId,cardName:data.cardName,force:data.force,used:1});
         //     });
-        // });
+        
+        // });    
             
     }
     cardEditGetList(socket,data){
         console.log("收到客户端 卡组列表请求");
-        if(!this.connection){
-            this.connection=createDBConnection();
-        }
-        this.connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,2], (err, result) => {
-            console.log(result.length,"result>>>",result);
-            if (err) {
-                console.log("数据库异常");
-                return;
-            }
+        let connection = new SQL();
+        connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,2])
+          .then((result) => {
             let arr=[];
             if(result.length==0){
                 
@@ -214,28 +256,77 @@ class CardEdit {
                 console.log("有数据解析卡组",arr.length);
             }
             socket.emit("CARD",{type:"cardEdit_getList",cardList:arr});
-        });
+          })
+          .catch((err) => {
+              // res.json({message:"数据库异常"});
+            console.log('Error executing query:',err.errno);
+          });
+
+
+        // if(!this.connection){
+        //     this.connection=createDBConnection();
+        // }
+        // this.connection.query(`select * from card where user = ? and cardtype = ?`, [data.user,2], (err, result) => {
+        //     console.log(result.length,"result>>>",result);
+        //     if (err) {
+        //         console.log("数据库异常");
+        //         return;
+        //     }
+        //     let arr=[];
+        //     if(result.length==0){
+                
+        //     }else{
+        //         for(let i=0;i<result.length;i++){
+        //             let obj={};
+        //             let info=JSON.parse(result[i].info);
+        //             obj.id=result[i].uid;
+        //             obj.cardName=result[i].name;
+        //             obj.used=result[i].used;
+        //             obj.force=info.force;
+        //             // obj.cardList=result[i].selectedCards;
+        //             arr.push(obj);
+        //         }
+        //         console.log("有数据解析卡组",arr.length);
+        //     }
+        //     socket.emit("CARD",{type:"cardEdit_getList",cardList:arr});
+        // });
     }
     cardEditGetInfo(socket,data){
         console.log("收到客户端 卡组详情请求");
-        if(!this.connection){
-            this.connection=createDBConnection();
-        }
-        this.connection.query(`select * from card where user = ? and uid = ?`, [data.user,data.id], (err, result) => {
-            console.log(result.length,"result>>>",result);
-            if (err) {
-                console.log("数据库异常");
-                return;
-            }
-            let obj={};
+        let connection = new SQL();
+        connection.query(`select * from card where user = ? and uid = ?`, [data.user,data.id])
+          .then((result) => {
+            let obj={selectedCards:[]};
             if(result.length==0){
-                
             }else{
                 obj=JSON.parse(result[0].info);
                 console.log("有数据解析卡组",obj);
             }
             socket.emit("CARD",{type:"cardEdit_getInfo",cardList:obj.selectedCards});
-        });
+          })
+          .catch((err) => {
+              // res.json({message:"数据库异常"});
+            console.log('Error executing query:',err.errno);
+          });
+
+        // if(!this.connection){
+        //     this.connection=createDBConnection();
+        // }
+        // this.connection.query(`select * from card where user = ? and uid = ?`, [data.user,data.id], (err, result) => {
+        //     console.log(result.length,"result>>>",result);
+        //     if (err) {
+        //         console.log("数据库异常");
+        //         return;
+        //     }
+        //     let obj={};
+        //     if(result.length==0){
+                
+        //     }else{
+        //         obj=JSON.parse(result[0].info);
+        //         console.log("有数据解析卡组",obj);
+        //     }
+        //     socket.emit("CARD",{type:"cardEdit_getInfo",cardList:obj.selectedCards});
+        // });
     }
     
     
