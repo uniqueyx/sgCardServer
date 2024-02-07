@@ -1,14 +1,25 @@
 const mysql = require("mysql");  
+const os = require('os');  
 
 class SQL {
   constructor(config) {
-    this.config = config?config:{
+
+    let configType=1;//0本地 1阿里云
+    
+    let localConfig={
       host: "localhost",  
       user: "root",  
       password: "123456",  
       database: "sgdb"};
+    if(configType==1||os.type() != 'Windows_NT'){
+    	localConfig.host="47.116.171.22";
+    	localConfig.password="uniqueyx";
+   }
+    this.config = config?config:localConfig;
+	
     this.pool = mysql.createPool(this.config);
   }
+    
 
   query(sql, params) {
     return new Promise((resolve, reject) => {

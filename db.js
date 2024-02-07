@@ -1,8 +1,8 @@
 const mysql = require("mysql");  
   
-function createDBConnection() {  
+function createDBConnection(config) {  
         //mysql.createPool 可以创建连接池提高性能  connectionLimit:10
-  const connection = mysql.createConnection({  
+  const connection = mysql.createConnection(config?config:{  
     host: "localhost",  
     user: "root",  
     password: "123456",  

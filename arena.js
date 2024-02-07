@@ -151,8 +151,12 @@ class Arena {
                         console.log("有数据解析竞技卡组",arenaData);
                     }
                     socket.emit("ARENA",{type:"arena_info",currentCards:arenaData.currentCards,
-                        force:arenaData.force,selectedCards:arenaData.selectedCards});
-                }else console.log("没有玩家数据？？？？？");
+                        force:arenaData.force,selectedCards:arenaData.selectedCards,new:0});
+                }else {
+                    console.log("没有玩家数据？？？？？");
+                    socket.emit("ARENA",{type:"arena_info",currentCards:[],
+                        force:0,selectedCards:[],new:1});
+                }    
               })
               .catch((err) => {
                   // res.json({message:"数据库异常"});
