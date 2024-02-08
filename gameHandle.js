@@ -37,7 +37,8 @@ class GameHandle {
         console.log("firstTurn>>>",this.roomData.firstTurn);
 
         //发送开始游戏  GameDB.USER_DB.get   nick undefined报错 要查一下
-        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:GameDB.USER_DB.get(this.roomData.two.user).nick,first:this.roomData.firstTurn=="one",gameState:this.gameState});
+        let nick=this.roomData.two.isAI?this.roomData.two.socket.nick:GameDB.USER_DB.get(this.roomData.two.user).nick;
+        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:nick,first:this.roomData.firstTurn=="one",gameState:this.gameState});
         this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:GameDB.USER_DB.get(this.roomData.one.user).nick,first:this.roomData.firstTurn=="two",gameState:this.gameState});
         
 
@@ -256,7 +257,7 @@ class GameHandle {
         }
     }
     gameReady(socket,data){
-         console.log("收到玩家准备 ");
+         console.log("收到玩家准备 ",data);
          if(this.gameState!=1) {
             console.log("玩家重连进入  需要发送游戏数据");
             this.sendData(data.user);
@@ -492,7 +493,7 @@ class GameHandle {
         }
         if(card.cardType==3) {
             useType=3;
-            if(this.getCardByID(card.id,card.owner,"tableCards").length>0){
+            if(this.getCardByID(card.id,card.owner,"magicCards").length>0){
                 console.log("<<<<<<<<<<<<<<<<<<<<存在同名陷阱卡了")
                 return;
             }
@@ -908,6 +909,10 @@ class GameHandle {
             console.log("《《《《《《《《《《《《《《《《攻击次数不存在  卡组中的卡 有BUG???");
             return;
         }
+        if(this.roomData.turn==1&&this.roomData.firstTurn==this.currentTurn){
+            console.log("首回合先攻无法攻击");
+            return;
+        }
         if(card.attackCount<=card.attackedCount) {
             console.log(card.attackCount,"《《《《《《《《《《《《《《《《攻击次数为0 无法攻击 是否有BUG",card.attackedCount);
             return;
@@ -1114,16 +1119,31 @@ class GameHandle {
         }
         return arr;
     }
+    //根据卡牌类型获取卡牌
+    getCardByCardType(playerkey,type,cardType,judgeNeed=false){
+        let arr=[];
+        for(let i=0;i<this.roomData[playerkey][type].length;i++){
+            let card=this.roomData[playerkey][type][i];
+            if(card.cardType==cardType) {
+                if(judgeNeed) {
+                    if(card.need!=0) arr.push(card);
+                }
+                else arr.push(card);
+            }    
+        }
+        return arr;
+    }
 
     //发送数据给前端
     sendData(user){
         let key=this.roomData.one.user==user?"one":"two";
         let other=key=="one"?"two":"one";
         //发送回合数据  GameDB.USER_DB.get(this.roomData[other].user).nick
+        let nick=this.roomData[other].isAI?this.roomData[other].socket.nick:GameDB.USER_DB.get(this.roomData[other].user).nick;
         this.roomData[key].socket.emit("GAME",{type:"game_data",turn:this.roomData.turn,changeHand:this.roomData[key].changeHand,
             myTurn:this.currentTurn==key,turnTime:this.roomData.turnTime,useGeneralTimes:this.roomData[key].useGeneralTimes,
             gameState:this.gameState,
-            hp:this.roomData[key].hp,otherName:GameDB.USER_DB.get(this.roomData[other].user).nick,otherHP:this.roomData[other].hp
+            hp:this.roomData[key].hp,otherName:nick,otherHP:this.roomData[other].hp
         });
         
         // this.roomData[key].socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user,first:this.roomData.firstTurn=="one",gameState:this.gameState});
