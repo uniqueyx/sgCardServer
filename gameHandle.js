@@ -162,8 +162,8 @@ class GameHandle {
         this.roomData[key].remainCards=newList;
         this.roomData[key].usedCards=[];//本局对战使用过的卡
     }
-    //发送卡牌数据给客户端
-    socketSendCards(player,other){
+    //获取当前卡牌数据
+    getCurrentCardData(player,other){
         let arrHand=[];
         for(let i=0;i<player.handCards.length;i++){
             arrHand.push(player.handCards[i].getCardData());
@@ -178,8 +178,8 @@ class GameHandle {
         }
         let arrOtherHand=[];
         for(let i=0;i<other.handCards.length;i++){
-            // arrHand.push(other.handCards[i].id);
-            arrOtherHand.push(0);
+            // arrOtherHand.push(0);
+            arrOtherHand.push(other.handCards[i].getCardData(true));
         }
         let arrOtherTable=[];
         for(let i=0;i<other.tableCards.length;i++){
@@ -189,7 +189,12 @@ class GameHandle {
         for(let i=0;i<other.magicCards.length;i++){
             arrOtherMagic.push(other.magicCards[i].getCardData(true));
         }
-        player.socket.emit("GAME",{type:"card_info",handCards:arrHand,tableCards:arrTable,magicCards:arrMagic,otherTableCards:arrOtherTable,otherMagicCards:arrOtherMagic,remainCards:player.remainCards.length,otherHandCards:arrOtherHand,otherRemainCards:other.remainCards.length});
+        return {type:"card_info",handCards:arrHand,tableCards:arrTable,magicCards:arrMagic,otherTableCards:arrOtherTable,otherMagicCards:arrOtherMagic,remainCards:player.remainCards.length,otherHandCards:arrOtherHand,otherRemainCards:other.remainCards.length};
+    }
+    //发送卡牌数据给客户端
+    socketSendCards(player,other){
+
+        player.socket.emit("GAME",this.getCurrentCardData(player,other));
     }
     //发送开始攻击消息
     socketCardAttack(key,uid,target){
@@ -257,22 +262,13 @@ class GameHandle {
         }
     }
     gameReady(socket,data){
-         console.log("收到玩家准备 ",data);
+         console.log(this.gameState,"收到玩家准备 ",data);
          if(this.gameState!=1) {
             console.log("玩家重连进入  需要发送游戏数据");
             this.sendData(data.user);
             return;
         }    
         //   console.log("收到玩家准备1 ");
-        if(!this.readyTimer){
-            this.readyTimer=setTimeout(() => {
-                console.log("有玩家没有准备 超时 自动结束游戏");
-                this.roomData["one"].socket.emit("GAME",{type:"game_dissolve"});
-                this.roomData["two"].socket.emit("GAME",{type:"game_dissolve"});
-                console.log("gameOverCall 回调处理");
-                this.gameOverCall(this.roomData.roomId);
-            }, 20000); 
-        }  
          if(this.roomData.one.user==data.user){
             if(this.roomData.one.ready) return;
             this.roomData.one.ready=true;
@@ -280,6 +276,16 @@ class GameHandle {
             if(this.roomData.two.ready) return;
             this.roomData.two.ready=true;
          }
+         if(!this.readyTimer){
+            console.log("触发20秒准备倒计时");
+            this.readyTimer=setTimeout(() => {
+                console.log("有玩家没有准备 超时 自动结束游戏");
+                this.roomData["one"].socket.emit("GAME",{type:"game_dissolve"});
+                this.roomData["two"].socket.emit("GAME",{type:"game_dissolve"});
+                console.log("gameOverCall 回调处理");
+                this.gameOverCall(this.roomData.roomId);
+            }, 20000); 
+        } 
         if(this.roomData.one.ready&&this.roomData.two.ready){
             console.log("双方玩家准备完毕 开始游戏initGame");
             clearTimeout(this.readyTimer);
@@ -290,30 +296,30 @@ class GameHandle {
         }
     }
     //获取数据库玩家卡牌信息  暂时已弃用
-    getUserCard(key,user){
-        if(!this.connection){
-            this.connection=createDBConnection();
-        }
-        this.connection.query(`select info from card where user = ? and cardtype = ?`, [user,1], (err, result) => {
-            console.log(result.length,"result>>>",result[0]);
-            //selectedCards
-            if (err) {
-                console.log("数据库异常");
-                return;
-            }
-            if(result.length>0){
-                let info=JSON.parse(result[0].info);
-                this.roomData[key].selectedCards=info.selectedCards;
-            }else{
-                this.roomData[key].selectedCards=[];
-            }
-            console.log(this.roomData.one.selectedCards,this.roomData.two.selectedCards)
-            console.log("true",this.roomData.one.selectedCards==true,this.roomData.two.selectedCards==true)
-            if(this.roomData.one.selectedCards&&this.roomData.two.selectedCards){
-                this.initGame();//游戏开始   !=undefined
-            }
-        }) 
-    }
+    // getUserCard(key,user){
+    //     if(!this.connection){
+    //         this.connection=createDBConnection();
+    //     }
+    //     this.connection.query(`select info from card where user = ? and cardtype = ?`, [user,1], (err, result) => {
+    //         console.log(result.length,"result>>>",result[0]);
+    //         //selectedCards
+    //         if (err) {
+    //             console.log("数据库异常");
+    //             return;
+    //         }
+    //         if(result.length>0){
+    //             let info=JSON.parse(result[0].info);
+    //             this.roomData[key].selectedCards=info.selectedCards;
+    //         }else{
+    //             this.roomData[key].selectedCards=[];
+    //         }
+    //         console.log(this.roomData.one.selectedCards,this.roomData.two.selectedCards)
+    //         console.log("true",this.roomData.one.selectedCards==true,this.roomData.two.selectedCards==true)
+    //         if(this.roomData.one.selectedCards&&this.roomData.two.selectedCards){
+    //             this.initGame();//游戏开始   !=undefined
+    //         }
+    //     }) 
+    // }
 
     gameChangeHand(socket,data){
         console.log("收到更换手牌",this.gameState);
@@ -441,13 +447,14 @@ class GameHandle {
         }    
         console.log(this.roomData[currentTurn].remainCards.length,overflow,"抽牌》",card.id,card.cardName);
         this.roomData[currentTurn].socket.emit("GAME",{type:"draw",id:card.id,uid:card.uid,overflow:overflow});
-        this.roomData[other].socket.emit("GAME",{type:"draw_other",overflow:overflow});
+        this.roomData[other].socket.emit("GAME",{type:"draw_other",overflow:overflow,uid:card.uid});
         return card;
     }
     //================卡牌使用》》》
     cardUse(socket,data){
-        let card=this.roomData[this.currentTurn].handCards[data.index];
-        console.log(data.index,"手卡数",this.roomData[this.currentTurn].handCards.length,"使用卡牌",card);
+        // let card=this.roomData[this.currentTurn].handCards[data.index];
+        let card=this.getCardByUID(data.uid,this.currentTurn,"handCards");
+        console.log(data.index,"手卡数",this.roomData[this.currentTurn].handCards.length,"使用卡牌",card.cardName);
         // if(this.getTableCardByType(this.currentTurn,card.cardType)==(card.cardType==1?GameHandle.TABLEGENERAL_LIMIT:GameHandle.TABLEMAGIC_LIMIT)){
         //     console.log(card.cardType,"桌面卡牌满了 无法使用",card);
         //     return;
@@ -462,11 +469,11 @@ class GameHandle {
             return;
         }
         if(card.cardType==1&&this.roomData[this.currentTurn].tableCards.length==GameHandle.TABLEGENERAL_LIMIT){
-            console.log(card.cardType,"桌面武将卡牌满了 无法使用",card);
+            console.log(card.cardType,"桌面武将卡牌满了 无法使用",card.cardName);
             return;
         }
         if(card.cardType>1&&this.roomData[this.currentTurn].magicCards.length==GameHandle.TABLEMAGIC_LIMIT){
-            console.log(card.cardType,"魔法陷阱卡区域满了 无法使用",card);
+            console.log(card.cardType,"魔法陷阱卡区域满了 无法使用",card.cardName);
             return;
         }
         //判断卡牌特殊召唤条件
@@ -475,12 +482,12 @@ class GameHandle {
         if(card.cardType==1){
             let judgeNeedResult=this.judgeCardNeed(card);
             if(judgeNeedResult==-1){
-                console.log(card.cardType,"特招条件不满足 是否有BUG》》》》》》》》》》》》》》》》》》》》",card);
+                console.log(card.cardType,"特招条件不满足 是否有BUG》》》》》》》》》》》》》》》》》》》》",card.cardName);
                 return;
             }
             else if(judgeNeedResult==0)  {
                 if(this.roomData[this.currentTurn].useGeneralTimes==0){
-                    console.log(card.cardType,"通常召唤次数不足 是否有BUG》》》》》》》》》》》》》》》》》》》》",card);
+                    console.log(card.cardType,"通常召唤次数不足 是否有BUG》》》》》》》》》》》》》》》》》》》》",card.cardName);
                     return;
                 }
                 console.log("通招成功>>>",card.cardName)
@@ -501,11 +508,12 @@ class GameHandle {
           
         //告诉客户端使用卡牌成功
         let other=this.currentTurn=="one"?"two":"one";
-        this.roomData[this.currentTurn].socket.emit("GAME",{type:"card_used",isMe:true,index:data.index,id:card.id,useType:useType});
-        this.roomData[other].socket.emit("GAME",{type:"card_used",isMe:false,index:data.index,id:card.cardType==3?0:card.id,useType:useType});
+        this.roomData[this.currentTurn].socket.emit("GAME",{type:"card_used",isMe:true,uid:data.uid,index:data.index,id:card.id,useType:useType});
+        this.roomData[other].socket.emit("GAME",{type:"card_used",isMe:false,uid:data.uid,index:data.index,id:card.cardType==3?0:card.id,useType:useType});
         //
         //处理使用效果
-        let useCard=this.roomData[this.currentTurn].handCards.splice(data.index,1)[0];
+        // let useCard=this.roomData[this.currentTurn].handCards.splice(data.index,1)[0];
+        let useCard=this.getRemoveCard(this.currentTurn,"handCards",data.uid);
         //陷阱触发判断  判断卡牌反制
         let isTrap=this.checkTrap(1010+card.cardType,card.owner);
         if(isTrap){
@@ -927,6 +935,11 @@ class GameHandle {
                 }
             }
         }
+        if(!target&&data.target!=-1){
+            console.log("攻击对象不存在");
+            // socket.emit("ERROR",{type:"error",msg:"游戏已结束！"});
+            return;
+        }
         //攻击次数-1
         card.changeAttackCount();
         //发送开始攻击消息
@@ -1091,6 +1104,17 @@ class GameHandle {
             }
         }
     }
+    getRemoveCard(key,type,uid){
+        let cardList=this.roomData[key][type];
+        for(let i=0;i<cardList.length;i++){
+            let cardOne=cardList[i];
+            if(cardOne.uid==uid){
+                return cardList.splice(i,1)[0];
+            }
+        }
+        console.log("getRemoveCard方法居然没有找到删除的卡  有BUG？？？？？？")
+        return null;
+    }
     //获取桌面卡牌类型数量
     // getTableCardByType(playerkey,cardType){
     //     let generalNum=0;
@@ -1119,7 +1143,7 @@ class GameHandle {
         }
         return arr;
     }
-    //根据卡牌类型获取卡牌
+    //根据卡牌类型获取卡牌 通招  特招  魔法 陷阱
     getCardByCardType(playerkey,type,cardType,judgeNeed=false){
         let arr=[];
         for(let i=0;i<this.roomData[playerkey][type].length;i++){
@@ -1128,10 +1152,23 @@ class GameHandle {
                 if(judgeNeed) {
                     if(card.need!=0) arr.push(card);
                 }
-                else arr.push(card);
+                else {
+                    if(cardType!=1||card.need==0) arr.push(card);
+                }    
             }    
         }
         return arr;
+    }
+    //获取包含effect某种id效果的数组
+    getEffectById(appear,effectId,cardType){
+        let arrEffect=[];
+        for(let i=0;i<appear.length;i++){
+            // console.log(appear[i].id,useCard.appear[i].obj,"魔法卡 战吼效果",useCard.appear[i].value,"发动卡玩家",useCard.owner)
+            if(appear[i].id==effectId) {
+                if(!cardType||!appear[i].cardType||appear[i].cardType==cardType)   arrEffect.push(appear[i]);
+            }    
+        }
+        return arrEffect;
     }
 
     //发送数据给前端
@@ -1142,13 +1179,13 @@ class GameHandle {
         let nick=this.roomData[other].isAI?this.roomData[other].socket.nick:GameDB.USER_DB.get(this.roomData[other].user).nick;
         this.roomData[key].socket.emit("GAME",{type:"game_data",turn:this.roomData.turn,changeHand:this.roomData[key].changeHand,
             myTurn:this.currentTurn==key,turnTime:this.roomData.turnTime,useGeneralTimes:this.roomData[key].useGeneralTimes,
-            gameState:this.gameState,
+            gameState:this.gameState,cardData:this.getCurrentCardData(this.roomData[key],this.roomData[other]),
             hp:this.roomData[key].hp,otherName:nick,otherHP:this.roomData[other].hp
         });
         
         // this.roomData[key].socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user,first:this.roomData.firstTurn=="one",gameState:this.gameState});
         //发送卡牌数据
-        this.socketSendCards(this.roomData[key],this.roomData[other]);
+        // this.socketSendCards(this.roomData[key],this.roomData[other]);
         // player.socket.emit("GAME",{type:"card_info",handCards:arrHand,tableCards:arrTable,otherTableCards:other.tableCards.length,remainCards:player.remainCards.length,otherHandCards:other.handCards.length,otherRemainCards:other.remainCards.length});
     }
     //静态函数

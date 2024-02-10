@@ -56,11 +56,22 @@ class RoomHandle {
         }
         if(!gameHandle){
             console.log("bug===>>收到game消息没有找到对应的gameHandle");
-            if(data.type== 'game_ready')    socket.emit("GAME",{type:"game_dissolve"});
+            if(data.type== 'game_ready')    socket.emit("ERROR",{type:"game_error",msg:"游戏已结束！"});
             return;
         }
         gameHandle.gameHandle(socket,data);
     }    
+    judgeInGame(user){
+         for(let i=0;i<this.roomList.length;i++){
+            // console.log("roomList>>",roomList[i].roomData.one.user,roomList[i].roomData.two.user)
+            if(this.roomList[i].roomData.one.user==user||roomList[i].roomData.two.user==user){
+                console.log("在游戏中 >>",this.roomList[i].roomData.roomId);
+                return true;
+                break;
+            }
+        }
+         return false;   
+    }
     //获取匹配等待的玩家
     getWaitPlayer(gameType){
         for(let i=0;i<this.waitList.length;i++){
@@ -131,19 +142,21 @@ class RoomHandle {
 	        socket.emit("ROOM",{type:"match_wait"});//匹配中
             this.aiTimer=setTimeout(() => {//新功能逻辑
                 console.log("匹配等待时间到 自动加入ai");
-                let ai=new AI(data.gameType);
-                let aiObj={user:ai.uid,selectedCards:ai.selectedCards,gameType:data.gameType,socket:ai,isAI:1,ready:false}
-                this.roomData={roomId:data.user,one:obj,two:aiObj,turn:0};
-                let gameHandle=new GameHandle(this.cardData,this.roomData,(rId)=>{this.gameOver(rId)});
-                ai.gameHandle=gameHandle;//操作类赋值 游戏结束记得清除引用
-                this.roomList.push( {roomData:this.roomData,gameHandle:gameHandle});
-                this.removeWaitPlayer(data.user);
-                gameHandle.readyGame();
-                socket.emit("ROOM",{type:"match_success"});
-                ai.emit("ROOM",{type:"match_success"});
-                console.log("匹配成功 等待ready 游戏初始化",this.roomList.length);
+                if(!this.judgeInGame(data.user)){
+                    let ai=new AI(data.gameType);
+                    let aiObj={user:ai.uid,selectedCards:ai.selectedCards,gameType:data.gameType,socket:ai,isAI:1,ready:false}
+                    this.roomData={roomId:data.user,one:obj,two:aiObj,turn:0};
+                    let gameHandle=new GameHandle(this.cardData,this.roomData,(rId)=>{this.gameOver(rId)});
+                    ai.gameHandle=gameHandle;//操作类赋值 游戏结束记得清除引用
+                    this.roomList.push( {roomData:this.roomData,gameHandle:gameHandle});
+                    this.removeWaitPlayer(data.user);
+                    gameHandle.readyGame();
+                    socket.emit("ROOM",{type:"match_success"});
+                    ai.emit("ROOM",{type:"match_success"});
+                    console.log("匹配ai成功 等待ready 游戏初始化",this.roomList.length);
+                }
                 
-        }, 10000);
+            }, 10000);
         }else{//进入匹配逻辑
             console.log("找到对手进入匹配逻辑");
             if(gameOne.user==data.user){
@@ -210,6 +223,9 @@ class RoomHandle {
             // console.log("gameSocketHandle_user>>",this.roomList[i].roomData.one.user,this.roomList[i].roomData.two.user);
             // console.log("socket id>>",this.roomList[i].roomData.one.socket.id,this.roomList[i].roomData.two.socket.id,socket.id)
             if(this.roomList[i].roomData.roomId==roomId){
+                if(this.roomList[i].roomData.two.isAI){
+                    this.roomList[i].roomData.two.socket.gameHandle=null;//清除机器人的gamehandle引用
+                }
                 this.roomList.splice(i,1);
                  console.log("清除完房间信息 房间数",this.roomList.length);
                 break;
