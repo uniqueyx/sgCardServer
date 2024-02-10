@@ -343,6 +343,7 @@ class GameHandle {
     }
     changeHandCard(key,cardList){
         // console.log("更换手牌前",this.roomData[key].handCards);
+        let other=key=="one"?"two":"one";
         for(let i=0;i<cardList.length;i++){
             if(cardList[i]==0){
                 continue;
@@ -362,6 +363,7 @@ class GameHandle {
             arrHand.push(this.roomData[key].handCards[i].getCardData());
         }
         this.roomData[key].socket.emit("GAME",{type:"card_changeHand",isMe:true,newList:arrHand,cardList:cardList});
+        this.roomData[other].socket.emit("GAME",{type:"card_changeHand",isMe:false,newList:arrHand,cardList:cardList});
     }
     turnEnd(socket,data){
         console.log("收到回合结束！",this.roomData.one.socket===socket,this.roomData.two.socket===socket);
