@@ -1145,18 +1145,17 @@ class GameHandle {
         }
         return arr;
     }
-    //根据卡牌类型获取卡牌 通招  特招  魔法 陷阱
-    getCardByCardType(playerkey,type,cardType,judgeNeed=false){
+    //根据卡牌类型获取卡牌 通招  特招  魔法 陷阱    needType是否判断need字段召唤条件
+    getCardByCardType(playerkey,type,cardType,needType=0){
         let arr=[];
         for(let i=0;i<this.roomData[playerkey][type].length;i++){
             let card=this.roomData[playerkey][type][i];
             if(card.cardType==cardType) {
-                if(judgeNeed) {
+                if(needType==1) {
                     if(card.need!=0) arr.push(card);
-                }
-                else {
+                }else if(needType==2){
                     if(cardType!=1||card.need==0) arr.push(card);
-                }    
+                }else arr.push(card);    
             }    
         }
         return arr;

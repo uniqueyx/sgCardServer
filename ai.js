@@ -101,6 +101,7 @@ class AI {
         let tableCards=this.gameHandle.getCardByCardType("two","tableCards",1);
         // let dt=tableCards.length<2?1000:2500/tableCards.length;
         for(let i=tableCards.length-1;i>-1;i--){
+            console.log("攻击判断i",i)
             if (tableCards[i]) { // 如果函数返回true，则等待一秒并执行函数e  
                 await new Promise(resolve => {  
                     setTimeout(() => {  
@@ -112,7 +113,7 @@ class AI {
                 });  
             }
         }
-        // console.log("start ai回合结束")
+        console.log("ai攻击结束2秒后结束回合");
         setTimeout(() => {
                 console.log("ai自动结束回合");
                 if(this.gameHandle){
@@ -121,7 +122,7 @@ class AI {
                         user: this.uid
                     });
                 }
-            }, 1000+Math.random()*500); 
+            }, 2000+Math.random()*500); 
     }
     //handCards    tableCards   magicCards   remainCards  usedCards
     useCard(){
@@ -135,7 +136,7 @@ class AI {
         // this.gameHandle.roomData["two"].handCards
         //通常武将
         setTimeout(() => {
-            let cardList=this.gameHandle.getCardByCardType("two","handCards",1);
+            let cardList=this.gameHandle.getCardByCardType("two","handCards",1,1);
             if(cardList.length>0){
                 this.useRandomCard(cardList);
             }   
@@ -143,7 +144,7 @@ class AI {
         //特招武将
         setTimeout(() => {
             if(this.gameHandle){
-                let cardListNeed=this.gameHandle.getCardByCardType("two","handCards",1,true);
+                let cardListNeed=this.gameHandle.getCardByCardType("two","handCards",1,2);
                 if(cardListNeed.length>0){
                     this.useRandomCard(cardListNeed);
                 }
@@ -171,7 +172,7 @@ class AI {
         let handCards=this.gameHandle.roomData["two"].handCards;
         let index;
         //后面要改成 发送uid 
-        let arrName="手牌列表:";
+        let arrName="机器人手牌列表:";
         for(let i=0;i<handCards.length;i++){
             if(handCards[i].uid==card.uid) {
                 index=i;
@@ -195,7 +196,7 @@ class AI {
             }
             if(this.gameHandle.getEffectById(card.appear,401).length>0){
                 if(this.gameHandle.roomData["two"].tableCards.length==0){
-                    console.log("我方没武将 不使用401增加buff魔法卡",card.cardName);
+                    console.log("机器人没武将 不使用401增加buff魔法卡",card.cardName);
                     return;
                 }
             }
@@ -233,6 +234,7 @@ class AI {
             }
         }
         if(targetCards.length>0&&targetUid==-1) return;
+        console.log("机器人直接攻击",targetCards.length)
         this.gameHandle.gameHandle(this,{
             type: "card_attack",
             user: this.uid,
