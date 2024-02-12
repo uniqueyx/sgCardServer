@@ -1,7 +1,7 @@
 let Card=require('./card');
 let GameDB=require('./gameDB');
 const createDBConnection=require('./db');
-// 定义游戏玩家操作类
+// 定义游戏玩家操作类    一个房间内的两个玩家共用一个gamehandle类
 class GameHandle {
     //构造函数
     constructor(cardData,roomData,gameOverCall) {
@@ -424,6 +424,7 @@ class GameHandle {
         this.roomData[lose].socket.emit("GAME",{type:"game_over",winType:winType,result:draw?-1:0});
         // clearInterval(this.turnTimer);
         console.log("gameOverCall 回调处理");
+        // if(this.roomData.two.isAI) 数据库处理
         this.gameOverCall(this.roomData.roomId);
     }
     //抽牌逻辑
@@ -950,7 +951,7 @@ class GameHandle {
         let isTrap=this.checkTrap(1005,card.owner);
         if(isTrap){
             let exitCard=this.getCardByUID(card.uid,card.owner,"tableCards");
-            console.log("陷阱效果处理完 card还在吗",exitCard);
+            console.log("陷阱效果处理完 card还在吗",!exitCard==null);
             if(!exitCard) {
                 console.log("触发陷阱 攻击卡没有了 攻击中断return");
                 return;
