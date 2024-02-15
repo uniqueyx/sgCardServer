@@ -1,57 +1,120 @@
 // AI机器人类
+let GameDB=require('./gameDB');
 class AI {
     //构造函数
-    constructor(gameType) {
+    constructor(gameType,level) {
         // console.log(socket.id);
         // console.log("args>>>",args)
         //生成AIuid
         AI.UID--;
         this.uid=AI.UID;
+        this.gameType=gameType;
         let arr=["神秘玩家","卡牌大佬","游戏王","炉石粉","决斗三国","诸葛亮","刘备","曹操","孙权","司马懿","周瑜","吕布",
             "赵云","关羽","张飞","马超","黄忠","game","sg","jdsg","好玩吗","测试","体验玩家","作者","duel"];
         let randomNumber = Math.floor(Math.random() * arr.length);
-        this.nick=arr[randomNumber];
+
+        //剧情挑战相关属性参数
+        this.level=level;
+        if(this.level==0){
+            this.dungeon=1;
+            this.step=0;
+        }else{
+            this.dungeon=Math.floor(this.level / 10);
+            this.step=this.level%10;
+            if(this.step==3){
+                this.dungeon++;
+                this.step=0;
+            }
+        }
+        //昵称
+        if(this.gameType==3){
+            this.nick="剧情boss"
+            let arrDungeon=[[10108,10109,10110],[10206,10207,10208]];
+            for(let i=0;i<GameDB.CARDLIST.length;i++){
+                if(GameDB.CARDLIST[i].id==arrDungeon[this.dungeon-1][this.step]){
+                    this.nick="剧情"+GameDB.CARDLIST[i].cardName;
+                    break;
+                }
+            }    
+        }else{
+            this.nick=arr[randomNumber];
+        }
         this.selectedCards=this.initSelectedCards();
-        this.gameType=gameType;
+        
         
         this.actionArgs = [  
-        [2, false],  
-        [1, false],  
-        [1, true],  
-        [3, false]  
+        [2, 0],  
+        [1, 2],  
+        [1, 1],  
+        [2, 0],
+        [3, 0]  
     ];
         
     }
     //=================类中函数
     //生成ai 卡组
     initSelectedCards(){
-        let arr=[[10110,10109,10108,10108,10107,10107,10106,10106,10105,10105,
+        if(this.gameType==3){
+            //剧情挑战卡组列表
+            let arrDungeon=[
+                [[10106,10106,30001,30107,10108,10108,10107,10107,10105,10105,
+                10108,10108,10108,10108,10108,20103,20103,20104,20104,20105,
+                21013,21014,21015,30001,30002,30003,30107,30108,30109,30110],
+                [10108,10108,30001,30107,10108,10108,10106,10106,10105,10105,
+                10109,10109,10109,10109,10109,20103,20103,20104,20104,20105,
+                21013,21014,21015,30001,30002,30003,30107,30108,30109,30110],
+                [10108,10108,10109,10109,30001,30107,10107,10107,10105,10105,
+                10110,10110,10110,10110,10110,20103,20103,20104,20104,20105,
+                21013,21014,21015,30001,30002,30003,30107,30108,30109,30110]],
+
+                [[10209,10210,30001,30107,10204,10204,10205,10205,10209,10210,
+                10206,10206,10206,10206,10206,20201,20202,20203,20204,20205,
+                21013,21014,21015,30001,30002,30003,30107,30108,30109,30110],
+                [30001,30107,10206,10206,10204,10204,10205,10205,10209,10210,
+                10207,10207,10207,10207,10207,20201,20202,20203,20204,20205,
+                21013,21014,21015,30001,30002,30003,30107,30108,30109,30110],
+                [10206,10206,10209,10210,10204,10204,30001,10207,10209,10210,
+                10208,10208,10208,10208,10209,20201,20202,20203,20204,20205,
+                21013,21014,21015,30001,30002,30003,30107,30108,30109,30110]]
+
+            ]   
+            console.log("初始化AI挑战卡组",this.dungeon-1,this.step);
+            return  arrDungeon[this.dungeon-1][this.step];
+        }else{
+            let arr=[[10110,10109,10108,10108,10107,10107,10106,10106,10105,10105,
                 10104,10104,10103,10102,10101,20103,20104,20104,20105,20101,
-                19010,21011,21013,21014,21015,30001,30107,30108,30109,30110],
+                30002,21011,21013,21014,21015,30001,30107,30108,30109,30110],
 
                 [10210,10209,10208,10208,10107,10207,10206,10206,10205,10205,
                 10204,10204,10203,10202,10201,20203,20204,20202,20205,20201,
-                19010,21011,21013,21014,21015,30001,30107,30108,30109,30110],
+                30002,21011,21013,21014,21015,30001,30107,30108,30109,30110],
 
                 [10410,10409,10408,10408,10407,10407,10406,10406,10405,10405,
                 10404,10404,10403,10402,10401,20403,20404,20402,20405,20401,
-                19010,21011,21013,21014,21015,30001,30107,30108,30109,30110],
+                30002,21011,21013,21014,21015,30001,30107,30108,30109,30110],
 
                 [10310,10309,10308,10308,10307,10307,10306,10306,10305,10305,
                 10304,10304,10303,10302,10301,20303,20304,20302,20305,20301,
-                19010,21011,21013,21014,21015,30001,30107,30108,30109,30110]
+                30002,21011,21013,21014,21015,30001,30107,30108,30109,30110]
             ]
-        let randomNumber = Math.floor(Math.random() * arr.length);
-
-        // let arrTest=[];
-        // for(let i=0;i<15;i++){
-        //     arrTest.push(10410,20403);
-        // }
-        // return arrTest;//测试
-        return arr[randomNumber];
+            let randomNumber = Math.floor(Math.random() * arr.length);
+            return arr[randomNumber];
+        }
+        
         // return [19010,19010,30110,30109,30108,30107,30107,30001,30001,21015,21014,21013,21011,21011,20305,20304,20303,20303,10310,10309,10308,10308,10306,10306,10307,10307,10303,10303,10302,10302];
         // return [21014,21013,21012,21012,21011,21011,19010,19010,30107,30107,30110,30109,30108,30001,30001,21015,10410,10409,20405,20402,20402,10408,10408,10407,10407,10402,10402,10406,20404,20404];
     }
+    //剧情挑战获取下一level
+    getNextLevel(){
+        this.step++;
+        if(this.step==4){
+            this.dungeon++;
+            this.step=1;
+        }
+        return this.dungeon*10+this.step;
+    }
+
+    //updateowner
     updateOwner(owner){
         this.owner=owner;
     }
@@ -79,10 +142,15 @@ class AI {
     }
 
     async aiAction(){
-        for (let i = 0; i < 4; i++) {  
+        for (let i = 0; i < 5; i++) {  
             const [arg3, arg4] = this.actionArgs[i]; // 使用解构赋值来获取第三个和第四个参数  
-            let cardList=this.gameHandle.getCardByCardType("two", "handCards", arg3, arg4); 
-            console.log("使用卡类型",i,"卡数量",cardList.length);
+            if(!this.gameHandle) return;
+            let cardList=this.gameHandle.getCardByCardType("two", "handCards", arg3, arg4);
+            let cardN="";//卡组名 
+            cardList.forEach(element => {  
+                cardN+="_"+element.cardName;
+            });
+            console.log("使用卡类型",i,"卡数量",cardList.length,cardN);
             if (await cardList.length>0) { // 如果函数返回true，则等待一秒并执行函数e  
                 await new Promise(resolve => {  
                     setTimeout(() => {  
@@ -231,6 +299,15 @@ class AI {
             if(card.getAttack()>target.getAttack()){
                 targetUid=target.uid;
                 break;
+            }
+        }
+        if(targetUid==-1){
+            for(let i=0;i<targetCards.length;i++){
+                let target=targetCards[i];
+                if(card.getAttack()==target.getAttack()&&target.getBuffById(102).length==0){
+                    targetUid=target.uid;
+                    break;
+                }
             }
         }
         if(targetCards.length>0&&targetUid==-1) return;

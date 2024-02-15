@@ -1,5 +1,6 @@
 let Card=require('./card');
 let GameDB=require('./gameDB');
+const SQL=require('./sql');
 const createDBConnection=require('./db');
 // 定义游戏玩家操作类    一个房间内的两个玩家共用一个gamehandle类
 class GameHandle {
@@ -10,6 +11,7 @@ class GameHandle {
         // this.socket=socket;
         // console.log(socket.id);
         // console.log("args>>>",args)
+        this.gameType=this.roomData.two.gameType;//游戏类型
         this.gameOverCall=gameOverCall;
         this.gameState=0;
     }
@@ -38,8 +40,8 @@ class GameHandle {
 
         //发送开始游戏  GameDB.USER_DB.get   nick undefined报错 要查一下
         let nick=this.roomData.two.isAI?this.roomData.two.socket.nick:GameDB.USER_DB.get(this.roomData.two.user).nick;
-        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:nick,first:this.roomData.firstTurn=="one",gameState:this.gameState});
-        this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:GameDB.USER_DB.get(this.roomData.one.user).nick,first:this.roomData.firstTurn=="two",gameState:this.gameState});
+        this.roomData.one.socket.emit("GAME",{type:"game_start",otherName:nick,first:this.roomData.firstTurn=="one",gameState:this.gameState,gameType:this.gameType});
+        this.roomData.two.socket.emit("GAME",{type:"game_start",otherName:GameDB.USER_DB.get(this.roomData.one.user).nick,first:this.roomData.firstTurn=="two",gameState:this.gameState,gameType:this.gameType});
         
 
         //初始化士气
@@ -86,7 +88,7 @@ class GameHandle {
     //初始化士气
     initHP(){
         this.roomData["one"].hp=GameHandle.INIT_HP;
-        this.roomData["two"].hp=GameHandle.INIT_HP;
+        this.roomData["two"].hp=this.gameType==3?GameHandle.INIT_HP_DUNGEON:GameHandle.INIT_HP;//
     }
     //重置武将通常召唤次数  重置攻击次数
     initUseGeneralTimes(){
@@ -426,6 +428,26 @@ class GameHandle {
         console.log("gameOverCall 回调处理");
         // if(this.roomData.two.isAI) 数据库处理
         this.gameOverCall(this.roomData.roomId);
+        //数据库相关处理
+        let connection = new SQL();
+        if(this.roomData.two.gameType==3){//剧情挑战
+            if(win=="one"){
+                let userData=GameDB.USER_DB.get(this.roomData["one"].user);
+                let nextLevel=this.roomData.two.socket.getNextLevel();
+                console.log("nextLevel>>",nextLevel)
+                connection.query(`update user set level= ? where uid= ?`, [nextLevel,this.roomData.one.user])
+                  .then((result) => {
+                        console.log("level更新成功",nextLevel);
+                        // socket.emit("USER",{type:"user_update",level:data.id});
+                        // GameDB.USER_DB.set(result[0].uid,result[0]);
+                  })
+                  .catch((err) => {
+                      // res.json({message:"数据库异常"});
+                    console.log('Error executing query:',err.errno);
+                  });
+            }
+        }
+        
     }
     //抽牌逻辑
     drawCard(currentTurn){
@@ -1182,7 +1204,7 @@ class GameHandle {
         this.roomData[key].socket.emit("GAME",{type:"game_data",turn:this.roomData.turn,changeHand:this.roomData[key].changeHand,
             myTurn:this.currentTurn==key,turnTime:this.roomData.turnTime,useGeneralTimes:this.roomData[key].useGeneralTimes,
             gameState:this.gameState,cardData:this.getCurrentCardData(this.roomData[key],this.roomData[other]),
-            hp:this.roomData[key].hp,otherName:nick,otherHP:this.roomData[other].hp
+            hp:this.roomData[key].hp,otherName:nick,otherHP:this.roomData[other].hp,gameType:this.gameType
         });
         
         // this.roomData[key].socket.emit("GAME",{type:"game_start",otherName:this.roomData.two.user,first:this.roomData.firstTurn=="one",gameState:this.gameState});
@@ -1262,6 +1284,7 @@ GameHandle.HANDCARD_LIMIT = 8;//手牌上限
 GameHandle.TABLEGENERAL_LIMIT = 5;//武将卡上限
 GameHandle.TABLEMAGIC_LIMIT = 5;//魔法卡上限
 GameHandle.INIT_HP = 100;//初始士气
+GameHandle.INIT_HP_DUNGEON = 150;//初始士气
 
 // SocketHandle.para = 'Allen';
 module.exports = GameHandle;
