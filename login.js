@@ -51,7 +51,7 @@ app.post("/login", (req, res)=> {
             res.json({message:"账号或密码错误"});
             return;
         }
-        console.log(account,"登录成功>>",result[0].nick); // 输出查询结果
+        console.log(account,"登录成功>>",result[0].nick,"时间：" + new Date().toLocaleString()); // 输出查询结果
         res.json({result:1,data:result[0]});
       })
       .catch((err) => {

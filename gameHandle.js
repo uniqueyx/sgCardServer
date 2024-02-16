@@ -158,7 +158,7 @@ class GameHandle {
         }
         
         // console.log(this.cardData.length,"newList>>",newList)
-        this.roomData[key].handCards=newList.splice(0,GameHandle.HANDCARD_COUNT);
+        this.roomData[key].handCards=newList.splice(0,(key=="two"&&this.gameType==3)?6:GameHandle.HANDCARD_COUNT);
         this.roomData[key].tableCards=[];
         this.roomData[key].magicCards=[];
         this.roomData[key].remainCards=newList;
@@ -438,6 +438,7 @@ class GameHandle {
                 connection.query(`update user set level= ? where uid= ?`, [nextLevel,this.roomData.one.user])
                   .then((result) => {
                         console.log("level更新成功",nextLevel);
+                        userData.level=nextLevel;//内存赋值
                         // socket.emit("USER",{type:"user_update",level:data.id});
                         // GameDB.USER_DB.set(result[0].uid,result[0]);
                   })
@@ -1073,10 +1074,11 @@ class GameHandle {
     //HP士气改变  type 1效果  2战斗
     updateHP(player,value){
         let other=player=="one"?"two":"one";
+        let hpLimit=(player=="two"&&this.gameType==3)?GameHandle.INIT_HP_DUNGEON:GameHandle.INIT_HP;
         this.roomData[player].hp+=value;
-        if(this.roomData[player].hp>GameHandle.INIT_HP){//hp溢出
-            value-=this.roomData[player].hp-GameHandle.INIT_HP;
-            this.roomData[player].hp=GameHandle.INIT_HP;
+        if(this.roomData[player].hp>hpLimit){//hp溢出
+            value-=this.roomData[player].hp-hpLimit;
+            this.roomData[player].hp=hpLimit;
         }
         this.socketUpdateHP(player,value);
         if(value<0&&this.roomData[player].hp<=0){
