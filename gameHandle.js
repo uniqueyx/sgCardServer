@@ -158,7 +158,7 @@ class GameHandle {
         }
         
         // console.log(this.cardData.length,"newList>>",newList)
-        this.roomData[key].handCards=newList.splice(0,(key=="two"&&this.gameType==3)?6:GameHandle.HANDCARD_COUNT);
+        this.roomData[key].handCards=newList.splice(0,(key=="two"&&this.gameType==3)?5:GameHandle.HANDCARD_COUNT);
         this.roomData[key].tableCards=[];
         this.roomData[key].magicCards=[];
         this.roomData[key].remainCards=newList;
