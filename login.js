@@ -31,6 +31,16 @@ app.post("/register", (req, res)=> {
         [account, password,nick, dayjs().format("YYYY-MM-DD HH:mm:ss")])
       .then((results) => {
         console.log("注册成功>>",results); // 输出查询结果
+            //新建新手卡组
+            let info=JSON.stringify({force:1,selectedCards:[30110,30109,30108,21015,21014,21013,21011,21011,30001,30001,30107,30107,19010,19010,20103,20103,20104,20104,10108,10108,10106,10106,10105,10105,10103,10103,10101,10102,10107,10107]});
+            connection.query(`insert into card (user, cardtype, name, info, used) VALUES (?, ?, ?, ?, ?)`, [results.insertId,2,"新手卡组",info,1])
+              .then((result) => {
+                console.log("新手对战卡组创建保存成功",result.insertId);
+              })
+              .catch((err) => {
+                console.log('Error executing query:',err.errno);
+              });
+
         res.json({result:1});
       })
       .catch((err) => {
