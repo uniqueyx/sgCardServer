@@ -65,7 +65,7 @@ class RoomHandle {
     judgeInGame(user){
          for(let i=0;i<this.roomList.length;i++){
             // console.log("roomList>>",roomList[i].roomData.one.user,roomList[i].roomData.two.user)
-            if(this.roomList[i].roomData.one.user==user||roomList[i].roomData.two.user==user){
+            if(this.roomList[i].roomData.one.user==user||this.roomList[i].roomData.two.user==user){
                 console.log("在游戏中 >>",this.roomList[i].roomData.roomId);
                 return true;
                 break;
